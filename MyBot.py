@@ -15,6 +15,12 @@ class MyBot:
     def __init__(self):
         self.game = hlt.Game()
 
+        self.height = self.game.game_map.height
+        self.width = self.game.game_map.width
+
+        ptvsd.enable_attach(address=('localhost', 5678))
+        ptvsd.wait_for_attach()
+
         #Initialize input layers
         self.halite_locations = np.zeros((64,64))
         self.current_unit = np.zeros((64,64))
@@ -32,10 +38,20 @@ class MyBot:
         self.game.ready("MyPythonBot")
         logging.info("Successfully created bot! My Player ID is {}.".format(self.game.my_id))
 
+    def buildInputs(self, cells):
+        offset = 0
+        if self.height == 32:
+            offset = 16
+
+        for row in cells:
+            for cell in row:
+                x = offset + cell.position.x
+                y = offset + cell.position.y
+                self.halite_locations[x][y] = cell.halite_amount
+
+
 
     def run(self):
-        ptvsd.enable_attach(address=('localhost', 5678))
-        ptvsd.wait_for_attach()
 
         while True:
             # This loop handles each turn of the game. The game object changes every turn, and you refresh that state by
@@ -45,10 +61,7 @@ class MyBot:
             me = self.game.me
             game_map = self.game.game_map
 
-            for moreCells in game_map._cells:
-                for cell in moreCells:
-                    if cell.ship is not None:
-                        logging.info("Owner" + str(cell.ship.owner) + " Halite: " +  str(cell.ship.halite_amount))
+            self.buildInputs(game_map._cells)
 
             # A command queue holds all the commands you will run this turn. You build this list up and submit it at the
             #   end of the turn.
