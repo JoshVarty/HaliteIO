@@ -9,6 +9,7 @@ import logging
 import numpy as np
 from hlt import constants
 from hlt.positionals import Direction
+from hlt.entity import Shipyard, Dropoff
 
 class MyBot:
 
@@ -18,20 +19,37 @@ class MyBot:
         self.height = self.game.game_map.height
         self.width = self.game.game_map.width
 
+        #Initialize settings for different board sizes
+        if self.height == 64:
+            self.num_steps = 500
+            self.offset = 0
+        elif self.height == 50:
+            self.num_steps = 475
+            self.offset = 7
+        elif self.height == 40:
+            self.num_steps = 425
+            self.offset = 12
+        else:
+            self.num_steps = 400
+            self.offset = 16
+        
         ptvsd.enable_attach(address=('localhost', 5678))
         ptvsd.wait_for_attach()
 
-        #Initialize input layers
+        #Board info
         self.halite_locations = np.zeros((64,64))
-        self.current_unit = np.zeros((64,64))
-        self.unit_score = np.zeros((64,64))
-        self.my_units = np.zeros((64,64))
-        self.shipyards = np.zeros((64,64))
+        self.steps_remaining = np.zeros((64,64))
+        #My global info
+        self.my_ships = np.zeros((64,64))
+        self.my_halite = np.zeros((64,64))
         self.dropoffs = np.zeros((64,64))
         self.score = np.zeros((64,64))
-
+        #My current unit info
+        self.unit_halite = np.zeros((64,64))
+        self.current_unit = np.zeros((64,64))
+        #Enemy global info
         #TODO: Generalize for 2 and 4 players
-        self.enemies = np.zeros((64,64))
+        self.enemy_ships = np.zeros((64,64))
         self.enemy_halite = np.zeros((64,64))
         self.enemy_score = np.zeros((64,64))
         
@@ -39,15 +57,36 @@ class MyBot:
         logging.info("Successfully created bot! My Player ID is {}.".format(self.game.my_id))
 
     def buildInputs(self, cells):
-        offset = 0
-        if self.height == 32:
-            offset = 16
 
         for row in cells:
             for cell in row:
-                x = offset + cell.position.x
-                y = offset + cell.position.y
+                x = self.offset + cell.position.x
+                y = self.offset + cell.position.y
                 self.halite_locations[x][y] = cell.halite_amount
+
+                #Note: both dropoffs and shipyards count as "Dropoffs"
+                if cell.has_structure:
+                    if cell.structure.owner == self.game.my_id:
+                        self.dropoffs[x][y] = 1
+                    else:
+                        #TODO: Do we care about enemy dropoffs?
+                        pass
+
+                if cell.is_occupied:
+                    if cell.ship.owner == self.game.my_id:
+                        self.my_ships[x][y] = 1
+                        self.my_halite[x][y] = cell.ship.halite_amount
+                    else:
+                        self.enemy_ships[x][y] = 2
+                        self.enemy_halite[x][y] = cell.ship.halite_amount
+
+        self.score = np.full((64,64), self.game.me.halite_amount)
+        self.steps_remaining = np.full((64,64), self.num_steps - self.game.turn_number + 1)
+
+        for id, player in self.game.players.items():
+            if id != self.game.my_id:
+                self.enemy_score = np.full((64,64), player.halite_amount)
+
 
 
 
