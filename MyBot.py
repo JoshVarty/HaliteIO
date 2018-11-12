@@ -14,6 +14,21 @@ class MyBot:
 
     def __init__(self):
         self.game = hlt.Game()
+
+        #Initialize input layers
+        self.halite_locations = np.zeros((64,64))
+        self.current_unit = np.zeros((64,64))
+        self.unit_score = np.zeros((64,64))
+        self.my_units = np.zeros((64,64))
+        self.shipyards = np.zeros((64,64))
+        self.dropoffs = np.zeros((64,64))
+        self.score = np.zeros((64,64))
+
+        #TODO: Generalize for 2 and 4 players
+        self.enemies = np.zeros((64,64))
+        self.enemy_halite = np.zeros((64,64))
+        self.enemy_score = np.zeros((64,64))
+        
         self.game.ready("MyPythonBot")
         logging.info("Successfully created bot! My Player ID is {}.".format(self.game.my_id))
 
