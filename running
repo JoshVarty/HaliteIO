@@ -1,1 +1,5 @@
-./halite --no-timeout -n 2 --replay-directory replays/ -vvv --width 32 --height 32 "python3 MyBot.py" "python3 DummyBot.py"
+./halite --no-timeout  --replay-directory replays/ -vvv --width 32 --height 32 "python3 MyBot.py" "python3 DummyBot.py"
+
+
+
+./halite --no-timeout -vvv --width 32 --height 32 'python3 MyBot.py' 
