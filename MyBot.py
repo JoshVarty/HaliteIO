@@ -87,9 +87,6 @@ class MyBot:
             if id != self.game.my_id:
                 self.enemy_score = np.full((64,64), player.halite_amount)
 
-
-
-
     def run(self):
 
         while True:
