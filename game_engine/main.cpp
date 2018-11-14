@@ -46,10 +46,6 @@ void ppo(hlt::Agent myAgent, unsigned int numEpisodes) {
 int main(int argc, char *argv[]) {
     auto &constants = hlt::Constants::get_mut();
 
-int i = 123;
-double mean = 12.3;
-
-    auto x= 6;
-
-    return 0;
+    hlt::Agent agent;
+    ppo(agent, 500);
 }
