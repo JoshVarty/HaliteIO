@@ -136,8 +136,8 @@ int main(int argc, char *argv[]) {
         map_parameters = snapshot.map_param;
     }
 
-    net::NetworkingConfig networking_config{};
-    networking_config.ignore_timeout = timeout_switch.getValue();
+    // net::NetworkingConfig networking_config{};
+    // networking_config.ignore_timeout = timeout_switch.getValue();
 
     hlt::Map map(map_parameters.width, map_parameters.height);
     hlt::mapgen::Generator::generate(map, map_parameters);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     Logging::log("Map seed is " + std::to_string(map_parameters.seed));
 
-    hlt::Halite game(map, networking_config, game_statistics, replay);
+    hlt::Halite game(map, game_statistics, replay);
     game.run_game(bot_commands, snapshot);
 
     const auto &overrides = override_args.getValue();

@@ -1,7 +1,6 @@
 #ifndef HALITE_H
 #define HALITE_H
 
-#include "Networking.hpp"
 #include "PlayerLog.hpp"
 #include "Store.hpp"
 #include "mapgen/Generator.hpp"
@@ -28,11 +27,9 @@ class Halite final {
     Replay &replay;                   /**< Replay instance to collect info for visualizer. */
 
     /** Friend classes have full access to game state. */
-    friend class net::Networking;
 
     friend class HaliteImpl;
 
-    net::Networking networking;       /**< The networking suite. */
     std::unique_ptr<HaliteImpl> impl; /**< The pointer to implementation. */
     std::mt19937 rng;                 /** The random number generator used for tie breaking. */
 
@@ -48,7 +45,6 @@ public:
      * @param replay The game replay to use.
      */
     Halite(Map &map,
-           const net::NetworkingConfig &networking_config,
            GameStatistics &game_statistics,
            Replay &replay);
 

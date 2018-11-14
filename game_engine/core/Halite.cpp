@@ -16,13 +16,11 @@ namespace hlt {
  * @param replay The game replay to use.
  */
 Halite::Halite(Map &map,
-               const net::NetworkingConfig &networking_config,
                GameStatistics &game_statistics,
                Replay &replay) :
         map(map),
         game_statistics(game_statistics),
         replay(replay),
-        networking(networking_config, *this),
         impl(std::make_unique<HaliteImpl>(*this)),
         rng(replay.map_generator_seed) {}
 
