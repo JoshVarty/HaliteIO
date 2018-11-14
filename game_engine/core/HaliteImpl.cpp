@@ -99,38 +99,16 @@ void HaliteImpl::initialize_game(int numPlayers, const Snapshot &snapshot) {
 void HaliteImpl::run_game() {
     const auto &constants = Constants::get();
 
-    ordered_id_map<Player, std::future<void>> results{};
-    bool success = true;
-    for (auto &[player_id, player] : game.store.players) {
-        //Logging::log("Launching with command " + player.command, Logging::Level::Info, player.id);
-        try {
-            //TODO: Connect to local player instead!
-            //game.networking.connect_player(player);
-        } catch (const BotError &e) {
-            success = false;
-            kill_player(player_id);
-            Logging::log("Player could not be launched", Logging::Level::Error, player.id);
-            Logging::log(e.what(), Logging::Level::Error);
-        }
-    }
-
-    for (auto &[player_id, result] : results) {
-        try {
-            result.get();
-            Logging::log("Initialized player " + game.store.get_player(player_id).name, Logging::Level::Info, player_id);
-        } catch (const BotError &e) {
-            kill_player(player_id);
-        }
-    }
     game.replay.players.insert(game.store.players.begin(), game.store.players.end());
-    Logging::log("Player initialization complete");
 
     for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
+
         Logging::set_turn_number(game.turn_number);
         game.logs.set_turn_number(game.turn_number);
         Logging::log([turn_number = game.turn_number]() {
             return "Starting turn " + std::to_string(turn_number);
         }, Logging::Level::Debug);
+        
         // Create new turn struct for replay file, to be filled by further turn actions
         game.replay.full_frames.emplace_back();
 

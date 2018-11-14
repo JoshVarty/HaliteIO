@@ -39,7 +39,26 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     hlt::GameStatistics game_statistics;
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     hlt::Halite game(map, game_statistics, replay);    
-    
+
+    hlt::Snapshot snapshot;
+    game.impl->initialize_game(numPlayers, snapshot);
+
+    game.impl->run_game();
+
+    for(auto row : game.map.grid){
+        for (auto cell : row) {
+            auto energy = cell.energy;
+            auto x = cell.entity;
+            auto y = cell.owner;
+
+            if(y.value > -1){
+                auto tempbreak = 45;
+                auto temp = y.value;
+
+
+            }
+        }
+    }
     
     auto grid = game.map.grid;
 

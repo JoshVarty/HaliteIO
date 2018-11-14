@@ -18,15 +18,7 @@ class HaliteImpl final {
     /** The game interface. */
     Halite &game;
 
-    /**
-     * Initialize the game.
-     * @param numPlayers The number of players in the game
-     */
-    void initialize_game(int numPlayers,
-                         const Snapshot &snapshot);
 
-    /** Run the game. */
-    void run_game();
 
     /**
      * Determine whether the game has ended.
@@ -93,6 +85,16 @@ public:
      * @param game The game interface.
      */
     explicit HaliteImpl(Halite &game);
+    
+    /**
+     * Initialize the game.
+     * @param numPlayers The number of players in the game
+     */
+    void initialize_game(int numPlayers,
+                         const Snapshot &snapshot);
+
+    /** Run the game. */
+    void run_game();
 };
 
 }
