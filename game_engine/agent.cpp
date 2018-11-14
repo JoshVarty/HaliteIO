@@ -14,10 +14,9 @@ struct rollout_item {
     int done;
 };
 
-Agent::Agent(HaliteImpl &game, int stateWidthHeight, int stateDepth, int actionSize)
+Agent::Agent(Halite &game, int stateWidthHeight, int stateDepth, int actionSize)
 : game(game)
 {
-
 }
 
 void Agent::step(){

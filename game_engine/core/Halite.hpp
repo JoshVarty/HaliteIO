@@ -30,6 +30,8 @@ class Halite final {
 
     friend class HaliteImpl;
 
+    friend class Agent;
+
     std::unique_ptr<HaliteImpl> impl; /**< The pointer to implementation. */
     std::mt19937 rng;                 /** The random number generator used for tie breaking. */
 

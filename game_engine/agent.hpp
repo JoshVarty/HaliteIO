@@ -1,12 +1,14 @@
 #include <future>
-#include "HaliteImpl.hpp"
+#include "Halite.hpp"
 
 
 namespace hlt {
 
 class Agent {
 
-    HaliteImpl game;
+    friend class Halite;
+
+    Halite &game;
     double discount_rate = 0.99;        //Amount by which to discount future rewards
     double tau = 0.95;                  //
     int learningRounds = 10;            //number of optimization rounds for a single rollout
@@ -29,7 +31,7 @@ public:
      * Construct Agent from state size and action size
      *
      */
-    explicit Agent(HaliteImpl &game, int stateWidthHeight, int stateDepth, int actionSize);
+    explicit Agent(Halite &game, int stateWidthHeight, int stateDepth, int actionSize);
 
 };
 }
