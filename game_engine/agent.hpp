@@ -6,8 +6,6 @@ namespace hlt {
 
 class Agent {
 
-    friend class Halite;
-
     Halite &game;
     double discount_rate = 0.99;        //Amount by which to discount future rewards
     double tau = 0.95;                  //
