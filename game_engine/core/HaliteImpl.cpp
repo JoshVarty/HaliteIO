@@ -115,20 +115,6 @@ void HaliteImpl::run_game() {
             Logging::log(e.what(), Logging::Level::Error);
         }
     }
-    if (!success) {
-        game.replay.players.insert(game.store.players.begin(), game.store.players.end());
-        Logging::log("Some players failed to launch, aborting", Logging::Level::Error);
-        return;
-    }
-
-    //TODO: Do we need to initialize them?
-    // for (auto &[player_id, player] : game.store.players) {
-    //     Logging::log("Initializing player", Logging::Level::Info, player_id);
-    //     results[player_id] = std::async(std::launch::async,
-    //                                     [&networking = game.networking, &player = player] {
-    //                                         networking.initialize_player(player);
-    //                                     });
-    //}
 
     for (auto &[player_id, result] : results) {
         try {

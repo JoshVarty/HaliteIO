@@ -136,9 +136,6 @@ int main(int argc, char *argv[]) {
         map_parameters = snapshot.map_param;
     }
 
-    // net::NetworkingConfig networking_config{};
-    // networking_config.ignore_timeout = timeout_switch.getValue();
-
     hlt::Map map(map_parameters.width, map_parameters.height);
     hlt::mapgen::Generator::generate(map, map_parameters);
 
