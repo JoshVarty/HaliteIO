@@ -43,11 +43,15 @@ std::unique_ptr<hlt::Halite> reset_game(){
 }
 
 
+
 void Agent::generate_rollout() {
     std::vector<rollout_item> rollout;
     //TODO: Set up list of episode rewards
     //Reset environment for new game
-    auto game = reset_game();
+    auto game_unique_ptr = reset_game();
+    auto game_ptr = game_unique_ptr.get();
+
+    auto grid = game_ptr->map.grid;
 
     return;
 }
