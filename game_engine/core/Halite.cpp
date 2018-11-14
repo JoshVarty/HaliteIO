@@ -26,11 +26,11 @@ Halite::Halite(Map &map,
 
 /**
  * Run the game.
- * @param player_commands The list of player commands.
+ * @param numPlayers The number of players in the game
  */
-void Halite::run_game(const std::vector<std::string> &player_commands,
+void Halite::run_game(int numPlayers,
                       const Snapshot &snapshot) {
-    impl->initialize_game(player_commands, snapshot);
+    impl->initialize_game(numPlayers, snapshot);
     impl->run_game();
 }
 

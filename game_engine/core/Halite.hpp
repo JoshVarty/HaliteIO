@@ -50,10 +50,10 @@ public:
 
     /**
      * Run the game.
-     * @param player_commands The list of player commands.
+     * @param numPlayers The number of players in the game
      * @param snapshot A snapshot of game state.
      */
-    void run_game(const std::vector<std::string> &player_commands,
+    void run_game(int numPlayers,
                   const Snapshot &snapshot);
 
     /** Generate a snapshot string from current game state. */

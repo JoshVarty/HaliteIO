@@ -28,7 +28,7 @@ void Agent::generate_rollout() {
     std::vector<rollout_item> rollout;
     //TODO: Set up list of episode rewards
     //TODO: Reset environment for new game
-    
+
     return;
 }
 

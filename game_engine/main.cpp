@@ -136,6 +136,8 @@ int main(int argc, char *argv[]) {
         map_parameters = snapshot.map_param;
     }
 
+    //NOTE: These seem to be the steps necessary to start a new game!
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
     hlt::Map map(map_parameters.width, map_parameters.height);
     hlt::mapgen::Generator::generate(map, map_parameters);
 
@@ -147,7 +149,11 @@ int main(int argc, char *argv[]) {
     Logging::log("Map seed is " + std::to_string(map_parameters.seed));
 
     hlt::Halite game(map, game_statistics, replay);
-    game.run_game(bot_commands, snapshot);
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
+
+
+    int numPlayers = 2;
+    game.run_game(numPlayers, snapshot);
 
     const auto &overrides = override_args.getValue();
     auto idx = 0;

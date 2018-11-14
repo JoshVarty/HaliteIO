@@ -10,8 +10,7 @@ namespace hlt {
  * Initialize the game.
  * @param player_commands The list of player commands.
  */
-void HaliteImpl::initialize_game(const std::vector<std::string> &player_commands,
-                                 const Snapshot &snapshot) {
+void HaliteImpl::initialize_game(int numPlayers, const Snapshot &snapshot) {
     // Update max turn # by map size (300 @ 32x32 to 500 at 80x80)
     auto &mut_constants = Constants::get_mut();
     auto turns = mut_constants.MIN_TURNS;
@@ -23,7 +22,6 @@ void HaliteImpl::initialize_game(const std::vector<std::string> &player_commands
 
     const auto &constants = Constants::get();
     auto &players = game.store.players;
-    assert(game.map.factories.size() >= player_commands.size());
 
     // Add a 0 frame so we can record beginning-of-game state
     game.replay.full_frames.emplace_back();
@@ -49,9 +47,9 @@ void HaliteImpl::initialize_game(const std::vector<std::string> &player_commands
         }
     }
 
-    for (const auto &command : player_commands) {
+    for (int i = 0; i < numPlayers; i++) {
         auto &factory = *factory_iterator++;
-        auto player = game.store.player_factory.make(factory, command);
+        auto player = game.store.player_factory.make(factory);
         player.energy = constants.INITIAL_ENERGY;
         game.game_statistics.player_statistics.emplace_back(player.id, game.rng());
         if (snapshot.players.find(player.id) != snapshot.players.end()) {
@@ -104,7 +102,7 @@ void HaliteImpl::run_game() {
     ordered_id_map<Player, std::future<void>> results{};
     bool success = true;
     for (auto &[player_id, player] : game.store.players) {
-        Logging::log("Launching with command " + player.command, Logging::Level::Info, player.id);
+        //Logging::log("Launching with command " + player.command, Logging::Level::Info, player.id);
         try {
             //TODO: Connect to local player instead!
             //game.networking.connect_player(player);
