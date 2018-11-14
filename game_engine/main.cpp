@@ -40,7 +40,6 @@ void ppo(hlt::Agent myAgent, unsigned int numEpisodes) {
         }
 
         //TODO: If network improves, save it.
-        
     }
 }
 

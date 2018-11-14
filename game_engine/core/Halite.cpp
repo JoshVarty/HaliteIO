@@ -8,21 +8,16 @@ namespace hlt {
 
     
 
-struct rollout_item {
-    int state[64*64*17];
-    int action[6];
-    double value;
-    double log_prob; //TODO: Change to Tensor
-    double reward;
-    int done;
-};
 
 Agent::Agent()
 {
 }
 
 double Agent::step(){
-    return 0;
+    auto rollout = generate_rollout();
+    auto processed_rollout = process_rollout(rollout);
+
+    return 0.0;
 }
 
 std::unique_ptr<hlt::Halite> reset_game(){
@@ -46,8 +41,8 @@ std::unique_ptr<hlt::Halite> reset_game(){
 
 
 
-void Agent::generate_rollout() {
-    // std::vector<rollout_item> rollout;
+std::vector<Agent::rollout_item> Agent::generate_rollout() {
+    std::vector<Agent::rollout_item> rollout;
     // //TODO: Set up list of episode rewards
     // //Reset environment for new game
     // auto game_unique_ptr = reset_game();
@@ -55,11 +50,12 @@ void Agent::generate_rollout() {
 
     // auto grid = game_ptr->map.grid;
 
-    return;
+    return rollout;
 }
 
-void Agent::process_rollout(){
-    return;
+std::vector<Agent::processed_rollout_item> Agent::process_rollout(std::vector<Agent::rollout_item> rollout) {
+    std::vector<Agent::processed_rollout_item> processed_rollout;
+    return processed_rollout;
 }
 
 void Agent::train_network(){
