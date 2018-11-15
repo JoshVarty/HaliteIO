@@ -119,6 +119,41 @@ void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawComman
     using Commands = std::vector<std::unique_ptr<Command>>;
     ordered_id_map<Player, Commands> commands{};
 
+    auto &players = game.store.players;
+
+    for(uint i = 0; i < rawCommands.size(); i++) {
+        auto playerRawCommands = rawCommands[i];
+
+        for(auto playerPair: players){
+            //Find the player who owns these commands. This is ugly I know.
+            auto playerId = playerPair.first.value;
+            auto player = playerPair.second;
+            if(playerId == i) {
+
+                Commands currentCommands;
+
+                for (auto rawCommand : playerRawCommands) {
+
+                    if(rawCommand == "spawn") {
+                        auto command = std::make_unique<SpawnCommand>();
+                        // auto command2 = std::make_unique<Command>();
+                        // //currentCommands.push_back(command);
+                        // currentCommands.push_back(command2);
+                        
+                    }
+
+                }
+            }
+
+        }
+        //auto current = players[0]
+
+
+    }
+
+
+
+
     // Process valid player commands, removing players if they submit invalid ones.
     std::unordered_set<Entity::id_type> changed_entities;
     while (!commands.empty()) {
