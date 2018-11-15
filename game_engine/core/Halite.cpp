@@ -72,7 +72,32 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
 
         //TODO: implement actual commands
         std::map<uint, std::vector<std::string>> commands;
+
+        auto &players = game.store.players;
+        for (auto playerPair : players) {
+
+            auto id = playerPair.first.value;
+            std::vector<std::string> playerCommands;
+            auto player = playerPair.second;
+
+            // auto energy = player.energy;
+            //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
+            auto cell = game.map.grid[player.factory.x][player.factory.y];
+
+            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && cell.entity.value == -1){
+                std::string command = "spawn";
+                playerCommands.push_back(command);
+            }
+
+            commands[id] = playerCommands;
+        }
+
+
         impl->process_turn(commands);
+
+
+
+
 
         // Add end of frame state.
         game.replay.full_frames.back().add_end_state(game.store);
