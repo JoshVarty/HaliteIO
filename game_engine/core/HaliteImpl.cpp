@@ -116,6 +116,7 @@ void HaliteImpl::run_game() {
 void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawCommands) {
     // Retrieve all commands
     //TODO: convert from raw commands to Commands
+    using Commands = std::vector<std::unique_ptr<Command>>;
     ordered_id_map<Player, Commands> commands{};
 
     // Process valid player commands, removing players if they submit invalid ones.

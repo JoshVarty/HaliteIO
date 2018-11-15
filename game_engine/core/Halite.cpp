@@ -5,6 +5,7 @@
 #include "HaliteImpl.hpp"
 #include "Player.hpp"
 #include "Enumerated.hpp"
+#include "Logging.hpp"
 
 namespace hlt {
 
@@ -48,9 +49,66 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     //TODO: Move any initialization in run_game here
     //impl->run_game();
 
-    //TODO: implement actual commands
-    std::map<uint, std::vector<std::string>> commands;
-    impl->process_turn(commands);
+     const auto &constants = Constants::get();
+
+    game.replay.players.insert(game.store.players.begin(), game.store.players.end());
+
+    for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
+
+        Logging::set_turn_number(game.turn_number);
+        game.logs.set_turn_number(game.turn_number);
+        Logging::log([turn_number = game.turn_number]() {
+            return "Starting turn " + std::to_string(turn_number);
+        }, Logging::Level::Debug);
+        
+        // Create new turn struct for replay file, to be filled by further turn actions
+        game.replay.full_frames.emplace_back();
+
+        // Add state of entities at start of turn.
+        // First, update inspiration flags, so they can be used for
+        // movement/mining and so they are part of the replay.
+        impl->update_inspiration();
+        game.replay.full_frames.back().add_entities(game.store);
+
+        //TODO: implement actual commands
+        std::map<uint, std::vector<std::string>> commands;
+        impl->process_turn(commands);
+
+        // Add end of frame state.
+        game.replay.full_frames.back().add_end_state(game.store);
+
+        if (impl->game_ended()) {
+            break;
+        }
+    }
+    game.game_statistics.number_turns = game.turn_number;
+
+    // Add state of entities at end of game.
+    game.replay.full_frames.emplace_back();
+    impl->update_inspiration();
+    game.replay.full_frames.back().add_entities(game.store);
+    impl->update_player_stats();
+    game.replay.full_frames.back().add_end_state(game.store);
+
+    impl->rank_players();
+    Logging::log("Game has ended");
+    Logging::set_turn_number(Logging::ended);
+    game.logs.set_turn_number(PlayerLog::ended);
+    for (const auto &[player_id, player] : game.store.players) {
+        game.replay.players.find(player_id)->second.terminated = player.terminated;
+        if (!player.terminated) {
+            //TODO: Kill player locally
+            //game.networking.kill_player(player);
+        }
+    }
+
+
+
+
+
+
+
+
 
 
     for(auto row : game.map.grid){

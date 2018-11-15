@@ -20,12 +20,6 @@ class HaliteImpl final {
 
 
 
-    /**
-     * Determine whether the game has ended.
-     *
-     * @return True if the game has ended.
-     */
-    bool game_ended() const;
 
     /**
      * Determine whether a player can still play in the future
@@ -36,14 +30,6 @@ class HaliteImpl final {
     bool player_can_play(const Player &player) const;
 
     /**
-     * Update a player's statistics after a single turn. This will update their current game production and their last turn
-     * alive if they are still alive.
-     *
-     * @param productions Mapping from player ID to the production they gained in the current turn.
-     */
-    void update_player_stats();
-
-    /**
      * Determine if entity owned by given player is in range of another player (their entity, dropoff, or factory) and thus may interact
      *
      * param owner_id Id of owner of entity at given location
@@ -52,15 +38,7 @@ class HaliteImpl final {
      */
     bool possible_interaction(const Player::id_type owner_id, const Location entity_location);
 
-    /**
-     * Update players' rankings based on their final turn alive, then break ties with production totals in final turn.
-     * Function is intended to be called at end of game, and will in place modify the ranking field of player statistics
-     * to rank players from winner (1) to last player.
-     */
-    void rank_players();
 
-    /** Update the inspiration flag on entities based on the current game state. */
-    void update_inspiration();
 
 
     /** Remove a player from the game. */
@@ -77,6 +55,31 @@ class HaliteImpl final {
                       CommandError error);
 
 public:
+    /**
+     * Determine whether the game has ended.
+     *
+     * @return True if the game has ended.
+     */
+    bool game_ended() const;
+
+    /**
+     * Update players' rankings based on their final turn alive, then break ties with production totals in final turn.
+     * Function is intended to be called at end of game, and will in place modify the ranking field of player statistics
+     * to rank players from winner (1) to last player.
+     */
+    void rank_players();
+    
+    /**
+     * Update a player's statistics after a single turn. This will update their current game production and their last turn
+     * alive if they are still alive.
+     *
+     * @param productions Mapping from player ID to the production they gained in the current turn.
+     */
+    void update_player_stats();
+
+    /** Update the inspiration flag on entities based on the current game state. */
+    void update_inspiration();
+
     /**
      * Construct HaliteImpl from game interface.
      *
