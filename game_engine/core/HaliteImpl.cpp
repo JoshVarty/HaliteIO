@@ -112,6 +112,26 @@ void HaliteImpl::run_game() {
     }
 }
 
+void parse(std::string rawCommand, std::unique_ptr<Command> &command) {
+    // Read one character corresponding to the type, and dispatch the remainder based on its value.
+    char command_type;
+    if (rawCommand == "move") {
+        Entity::id_type entity;
+        Direction direction;
+        //istream >> entity >> direction;
+        command = std::make_unique<MoveCommand>(entity, direction);
+    }
+    else if (rawCommand == "spawn") {
+        command = std::make_unique<SpawnCommand>();
+    }
+    else if (rawCommand == "construct"){
+        Entity::id_type entity;
+        //istream >> entity;
+        command = std::make_unique<ConstructCommand>(entity);
+    }
+}
+
+
 /** Retrieve and process commands, and update the game state for the current turn. */
 void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawCommands) {
     // Retrieve all commands
@@ -134,24 +154,15 @@ void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawComman
 
                 for (auto rawCommand : playerRawCommands) {
 
-                    if(rawCommand == "spawn") {
-                        auto command = std::make_unique<SpawnCommand>();
-                        // auto command2 = std::make_unique<Command>();
-                        // //currentCommands.push_back(command);
-                        // currentCommands.push_back(command2);
-                        
-                    }
-
+                    std::unique_ptr<Command> command;
+                    parse(rawCommand, command);
+                    currentCommands.push_back(std::move(command));
                 }
+
+                commands[playerPair.first] = std::move(currentCommands);
             }
-
         }
-        //auto current = players[0]
-
-
     }
-
-
 
 
     // Process valid player commands, removing players if they submit invalid ones.
