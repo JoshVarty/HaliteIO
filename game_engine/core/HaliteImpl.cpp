@@ -81,7 +81,7 @@ void HaliteImpl::run_game() {
         update_inspiration();
         game.replay.full_frames.back().add_entities(game.store);
 
-        process_turn();
+        //process_turn();
 
         // Add end of frame state.
         game.replay.full_frames.back().add_end_state(game.store);
@@ -113,29 +113,10 @@ void HaliteImpl::run_game() {
 }
 
 /** Retrieve and process commands, and update the game state for the current turn. */
-void HaliteImpl::process_turn() {
+void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawCommands) {
     // Retrieve all commands
-    using Commands = std::vector<std::unique_ptr<Command>>;
+    //TODO: convert from raw commands to Commands
     ordered_id_map<Player, Commands> commands{};
-    id_map<Player, std::future<Commands>> results{};
-    for (auto &[player_id, player] : game.store.players) {
-        if (!player.terminated) {
-
-            //TODO: Get commands from each player and store in results
-            // results[player_id] = std::async(std::launch::async,
-            //                                 [&networking = game.networking, &player = player] {
-            //                                     return networking.handle_frame(player);
-            //                                 });
-        }
-    }
-    for (auto &[player_id, result] : results) {
-        try {
-            commands[player_id] = result.get();
-        } catch (const BotError &e) {
-            kill_player(player_id);
-            commands.erase(player_id);
-        }
-    }
 
     // Process valid player commands, removing players if they submit invalid ones.
     std::unordered_set<Entity::id_type> changed_entities;

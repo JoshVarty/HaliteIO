@@ -62,8 +62,6 @@ class HaliteImpl final {
     /** Update the inspiration flag on entities based on the current game state. */
     void update_inspiration();
 
-    /** Retrieve and process commands, and update the game state for the current turn. */
-    void process_turn();
 
     /** Remove a player from the game. */
     void kill_player(const Player::id_type &player_id);
@@ -94,8 +92,11 @@ public:
 
     /** Run the game. */
     void run_game();
-};
+    
+    /** Retrieve and process commands, and update the game state for the current turn. */
+    void process_turn(std::map<uint, std::vector<std::string>> rawCommands);
 
+};
 }
 
 #endif // HALITEIMPL_HPP

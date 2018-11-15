@@ -3,7 +3,9 @@
 
 #include "Halite.hpp"
 #include "HaliteImpl.hpp"
-//
+#include "Player.hpp"
+#include "Enumerated.hpp"
+
 namespace hlt {
 
     
@@ -40,9 +42,16 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     hlt::Halite game(map, game_statistics, replay);    
 
-    game.impl->initialize_game(numPlayers);
+    auto impl = std::make_unique<HaliteImpl>(game);
+    impl->initialize_game(numPlayers);
 
-    game.impl->run_game();
+    //TODO: Move any initialization in run_game here
+    //impl->run_game();
+
+    //TODO: implement actual commands
+    std::map<uint, std::vector<std::string>> commands;
+    impl->process_turn(commands);
+
 
     for(auto row : game.map.grid){
         for (auto cell : row) {
@@ -114,17 +123,17 @@ Halite::Halite(Map &map,
         map(map),
         game_statistics(game_statistics),
         replay(replay),
-        impl(std::make_unique<HaliteImpl>(*this)),
+
+        //impl(std::make_unique<HaliteImpl>(*this)),
         rng(replay.map_generator_seed) {}
 
 /**
  * Run the game.
  * @param numPlayers The number of players in the game
  */
-void Halite::run_game(int numPlayers,
-                      const Snapshot &snapshot) {
-    impl->initialize_game(numPlayers);
-    impl->run_game();
+void Halite::run_game(int numPlayers, const Snapshot &snapshot) {
+    // impl->initialize_game(numPlayers);
+    // impl->run_game();
 }
 
 std::string Halite::to_snapshot(const hlt::mapgen::MapParameters &map_parameters) {
