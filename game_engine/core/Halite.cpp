@@ -40,8 +40,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     hlt::Halite game(map, game_statistics, replay);    
 
-    hlt::Snapshot snapshot;
-    game.impl->initialize_game(numPlayers, snapshot);
+    game.impl->initialize_game(numPlayers);
 
     game.impl->run_game();
 
@@ -124,7 +123,7 @@ Halite::Halite(Map &map,
  */
 void Halite::run_game(int numPlayers,
                       const Snapshot &snapshot) {
-    impl->initialize_game(numPlayers, snapshot);
+    impl->initialize_game(numPlayers);
     impl->run_game();
 }
 

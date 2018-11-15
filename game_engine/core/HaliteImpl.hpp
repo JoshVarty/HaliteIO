@@ -90,8 +90,7 @@ public:
      * Initialize the game.
      * @param numPlayers The number of players in the game
      */
-    void initialize_game(int numPlayers,
-                         const Snapshot &snapshot);
+    void initialize_game(int numPlayers);
 
     /** Run the game. */
     void run_game();

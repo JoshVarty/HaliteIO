@@ -10,7 +10,7 @@ namespace hlt {
  * Initialize the game.
  * @param player_commands The list of player commands.
  */
-void HaliteImpl::initialize_game(int numPlayers, const Snapshot &snapshot) {
+void HaliteImpl::initialize_game(int numPlayers) {
     // Update max turn # by map size (300 @ 32x32 to 500 at 80x80)
     auto &mut_constants = Constants::get_mut();
     auto turns = mut_constants.MIN_TURNS;
@@ -29,18 +29,6 @@ void HaliteImpl::initialize_game(int numPlayers, const Snapshot &snapshot) {
 
     auto factory_iterator = game.map.factories.begin();
 
-    // Load the map from the snapshot
-    if (!snapshot.map.empty()) {
-        assert(snapshot.map.size() == static_cast<decltype(snapshot.map)::size_type>(game.map.width * game.map.height));
-
-        for (dimension_type row = 0; row < game.map.height; row++) {
-            for (dimension_type col = 0; col < game.map.width; col++) {
-                game.map.at(col, row).energy = snapshot.map.at(static_cast<size_t>(row * game.map.width + col));
-                changed_cells.emplace(row, col);
-            }
-        }
-    }
-
     for (dimension_type row = 0; row < game.map.height; row++) {
         for (dimension_type col = 0; col < game.map.width; col++) {
             game.store.map_total_energy += game.map.at(col, row).energy;
@@ -52,31 +40,6 @@ void HaliteImpl::initialize_game(int numPlayers, const Snapshot &snapshot) {
         auto player = game.store.player_factory.make(factory);
         player.energy = constants.INITIAL_ENERGY;
         game.game_statistics.player_statistics.emplace_back(player.id, game.rng());
-        if (snapshot.players.find(player.id) != snapshot.players.end()) {
-            const auto &player_snapshot = snapshot.players.at(player.id);
-            player.factory = player_snapshot.factory;
-            player.energy = player_snapshot.energy;
-
-            for (const auto &[_, dropoff_location] : player_snapshot.dropoffs) {
-                auto &cell = game.map.at(dropoff_location);
-                cell.owner = player.id;
-                player.dropoffs.emplace_back(game.store.new_dropoff(dropoff_location));
-                game.replay.full_frames.back().events.push_back(
-                        std::make_unique<ConstructionEvent>(
-                                dropoff_location, player.id, Entity::id_type{0}));
-                changed_cells.insert(dropoff_location);
-            }
-
-            for (const auto &entity : player_snapshot.entities) {
-                auto &cell = game.map.at(entity.location);
-                const auto &new_entity = game.store.new_entity(entity.energy, player.id);
-                cell.entity = new_entity.id;
-                player.add_entity(new_entity.id, entity.location);
-                game.replay.full_frames.back().events.push_back(
-                        std::make_unique<SpawnEvent>(
-                                entity.location, entity.energy, player.id, cell.entity));
-            }
-        }
         players.emplace(player.id, player);
     }
     game.replay.game_statistics = game.game_statistics;
