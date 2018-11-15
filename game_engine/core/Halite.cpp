@@ -82,7 +82,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
 
             // auto energy = player.energy;
             //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
-            auto cell = game.map.grid[player.factory.x][player.factory.y];
+            auto cell = game.map.grid[player.factory.y][player.factory.x];
 
             if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && cell.entity.value == -1){
                 std::string command = "spawn";
@@ -129,7 +129,34 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
 
 
 
+    //Save replays
+    // While compilers like G++4.8 report C++11 compatibility, they do not
+    // support std::put_time, so we have to use strftime instead.
+    const auto time = std::time(nullptr);
+    const auto localtime = std::localtime(&time);
+    static constexpr size_t MAX_DATE_STRING_LENGTH = 25;
+    char time_string[MAX_DATE_STRING_LENGTH];
+    std::strftime(time_string, MAX_DATE_STRING_LENGTH, "%Y%m%d-%H%M%S%z", localtime);
 
+    // Output gamefile. First try the replays folder; if that fails, just use the straight filename.
+    std::stringstream filename_buf;
+    filename_buf << "replay-" << std::string(time_string);
+    filename_buf << "-" << replay.map_generator_seed;
+    filename_buf << "-" << map.width;
+    filename_buf << "-" << map.height << ".hlt";
+    auto filename = filename_buf.str();
+    std::string output_filename = replay_directory + filename;
+    //results["replay"] = output_filename;
+    bool enable_compression = true;
+    try {
+        replay.output(output_filename, enable_compression);
+    } catch (std::runtime_error &e) {
+        Logging::log("Error: could not write replay to directory " + replay_directory + ", falling back on current directory.", Logging::Level::Error);
+        replay_directory = "./";
+        output_filename = replay_directory + filename;
+        replay.output(output_filename, enable_compression);
+    }
+    Logging::log("Opening a file at " + output_filename);
 
 
 
