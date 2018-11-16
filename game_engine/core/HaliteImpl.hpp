@@ -93,11 +93,13 @@ public:
      */
     void initialize_game(int numPlayers);
 
+    void parse(AgentCommand agentCommand, std::unique_ptr<Command> &command);
+
     /** Run the game. */
     void run_game();
     
     /** Retrieve and process commands, and update the game state for the current turn. */
-    void process_turn(std::map<uint, std::vector<AgentCommand>> rawCommands);
+    void process_turn(std::map<long, std::vector<AgentCommand>> rawCommands);
 
 };
 }

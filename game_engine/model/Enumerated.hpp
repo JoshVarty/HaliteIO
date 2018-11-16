@@ -120,7 +120,7 @@ struct hash<Enumerated<T>> {
 };
 }
 
-typedef std::pair<uint, std::string> AgentCommand;
+typedef std::pair<long, std::string> AgentCommand;
 
 
 /** Type of ordered maps from ID to arbitrary value. */

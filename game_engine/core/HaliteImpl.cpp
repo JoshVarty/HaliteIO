@@ -112,19 +112,38 @@ void HaliteImpl::run_game() {
     }
 }
 
-void parse(std::string rawCommand, std::unique_ptr<Command> &command) {
+void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &command) {
     // Read one character corresponding to the type, and dispatch the remainder based on its value.
+    auto entityId = agentCommand.first;
+    auto agentCommandText = agentCommand.second;
+
     char command_type;
-    if (rawCommand == "move") {
-        Entity::id_type entity;
+    if (agentCommandText == "N" || agentCommandText == "E" || agentCommandText == "S" || agentCommandText == "W" || agentCommandText == "stay") {
+        Entity::id_type entity(agentCommand.first);
         Direction direction;
+
+        if (agentCommandText == "N"){
+            direction = Direction::North;
+        }
+        else if (agentCommandText == "E"){
+            direction = Direction::East;
+        }
+        else if (agentCommandText == "S"){
+            direction = Direction::South;
+        }
+        else if (agentCommandText == "W"){
+            direction = Direction::West;
+        }
+        else if (agentCommandText == "stay"){
+            direction = Direction::Still;
+        }
         //istream >> entity >> direction;
         command = std::make_unique<MoveCommand>(entity, direction);
     }
-    else if (rawCommand == "spawn") {
+    else if (agentCommandText == "spawn") {
         command = std::make_unique<SpawnCommand>();
     }
-    else if (rawCommand == "construct"){
+    else if (agentCommandText == "construct") {
         Entity::id_type entity;
         //istream >> entity;
         command = std::make_unique<ConstructCommand>(entity);
@@ -133,7 +152,7 @@ void parse(std::string rawCommand, std::unique_ptr<Command> &command) {
 
 
 /** Retrieve and process commands, and update the game state for the current turn. */
-void HaliteImpl::process_turn(std::map<uint, std::vector<AgentCommand>> rawCommands) {
+void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawCommands) {
     // Retrieve all commands
     //TODO: convert from raw commands to Commands
     using Commands = std::vector<std::unique_ptr<Command>>;
@@ -155,7 +174,7 @@ void HaliteImpl::process_turn(std::map<uint, std::vector<AgentCommand>> rawComma
                 for (auto rawCommand : playerRawCommands) {
 
                     std::unique_ptr<Command> command;
-                    parse(rawCommand.second, command);
+                    parse(rawCommand, command);
                     currentCommands.push_back(std::move(command));
                 }
 

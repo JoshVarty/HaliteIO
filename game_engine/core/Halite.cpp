@@ -70,7 +70,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
         game.replay.full_frames.back().add_entities(game.store);
 
         //TODO: implement actual commands
-        std::map<uint, std::vector<AgentCommand>> commands;
+        std::map<long, std::vector<AgentCommand>> commands;
 
         auto &players = game.store.players;
         for (auto playerPair : players) {
@@ -95,10 +95,9 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
                     //Otherwise, take a random step
                     std::mt19937 rng;
                     rng.seed(std::random_device()());
-                    std::uniform_int_distribution<std::mt19937::result_type> dist4(1,4); // distribution in range [1, 4]
-                    auto randomIndex = dist4(rng);
+                    std::uniform_int_distribution<std::mt19937::result_type> dist3(0,3); // distribution in range [0, 3]
+                    auto randomIndex = dist3(rng);
                     command = moves[randomIndex];
-
                 }
                 playerCommands.push_back(AgentCommand(entityId.value, command));
             }
@@ -107,7 +106,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
             //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
             auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
             if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1){
-                uint factoryId = -1;
+                long factoryId = -1;
                 std::string command = "spawn";
                 playerCommands.push_back(AgentCommand(factoryId, command));
             }
