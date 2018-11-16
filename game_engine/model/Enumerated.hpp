@@ -120,6 +120,9 @@ struct hash<Enumerated<T>> {
 };
 }
 
+typedef std::pair<uint, std::string> AgentCommand;
+
+
 /** Type of ordered maps from ID to arbitrary value. */
 template<class K, class V>
 using ordered_id_map = std::map<typename K::id_type, V>;

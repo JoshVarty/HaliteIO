@@ -133,7 +133,7 @@ void parse(std::string rawCommand, std::unique_ptr<Command> &command) {
 
 
 /** Retrieve and process commands, and update the game state for the current turn. */
-void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawCommands) {
+void HaliteImpl::process_turn(std::map<uint, std::vector<AgentCommand>> rawCommands) {
     // Retrieve all commands
     //TODO: convert from raw commands to Commands
     using Commands = std::vector<std::unique_ptr<Command>>;
@@ -155,7 +155,7 @@ void HaliteImpl::process_turn(std::map<uint, std::vector<std::string>> rawComman
                 for (auto rawCommand : playerRawCommands) {
 
                     std::unique_ptr<Command> command;
-                    parse(rawCommand, command);
+                    parse(rawCommand.second, command);
                     currentCommands.push_back(std::move(command));
                 }
 

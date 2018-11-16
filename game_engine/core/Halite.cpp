@@ -6,6 +6,8 @@
 #include "Player.hpp"
 #include "Enumerated.hpp"
 #include "Logging.hpp"
+#include <random>
+
 
 namespace hlt {
 
@@ -43,14 +45,11 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     hlt::Halite game(map, game_statistics, replay);    
 
+    //Initialize implementation
     auto impl = std::make_unique<HaliteImpl>(game);
     impl->initialize_game(numPlayers);
 
-    //TODO: Move any initialization in run_game here
-    //impl->run_game();
-
-     const auto &constants = Constants::get();
-
+    const auto &constants = Constants::get();
     game.replay.players.insert(game.store.players.begin(), game.store.players.end());
 
     for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
@@ -71,33 +70,52 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
         game.replay.full_frames.back().add_entities(game.store);
 
         //TODO: implement actual commands
-        std::map<uint, std::vector<std::string>> commands;
+        std::map<uint, std::vector<AgentCommand>> commands;
 
         auto &players = game.store.players;
         for (auto playerPair : players) {
 
             auto id = playerPair.first.value;
-            std::vector<std::string> playerCommands;
+            std::vector<AgentCommand> playerCommands;
             auto player = playerPair.second;
+
+            for(auto entityPair : player.entities) {
+                auto entityId = entityPair.first;
+                auto location = entityPair.second;
+
+                auto entity = game.store.get_entity(entityId);
+                std::string command = "";
+
+                if(game.map.grid[location.y][location.x].energy >= 100 && !entity.energy >= 1000) {
+                    //Mine (stay still)   
+                    command = "stay";
+                }
+                else {
+                    std::vector<std::string> moves {"N", "E", "S", "W"};
+                    //Otherwise, take a random step
+                    std::mt19937 rng;
+                    rng.seed(std::random_device()());
+                    std::uniform_int_distribution<std::mt19937::result_type> dist4(1,4); // distribution in range [1, 4]
+                    auto randomIndex = dist4(rng);
+                    command = moves[randomIndex];
+
+                }
+                playerCommands.push_back(AgentCommand(entityId.value, command));
+            }
 
             // auto energy = player.energy;
             //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
-            auto cell = game.map.grid[player.factory.y][player.factory.x];
-
-            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && cell.entity.value == -1){
+            auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
+            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1){
+                uint factoryId = -1;
                 std::string command = "spawn";
-                playerCommands.push_back(command);
+                playerCommands.push_back(AgentCommand(factoryId, command));
             }
 
             commands[id] = playerCommands;
         }
 
-
         impl->process_turn(commands);
-
-
-
-
 
         // Add end of frame state.
         game.replay.full_frames.back().add_end_state(game.store);
@@ -106,8 +124,8 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
             break;
         }
     }
-    game.game_statistics.number_turns = game.turn_number;
 
+    game.game_statistics.number_turns = game.turn_number;
     // Add state of entities at end of game.
     game.replay.full_frames.emplace_back();
     impl->update_inspiration();
@@ -121,13 +139,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     game.logs.set_turn_number(PlayerLog::ended);
     for (const auto &[player_id, player] : game.store.players) {
         game.replay.players.find(player_id)->second.terminated = player.terminated;
-        if (!player.terminated) {
-            //TODO: Kill player locally
-            //game.networking.kill_player(player);
-        }
     }
-
-
 
     //Save replays
     // While compilers like G++4.8 report C++11 compatibility, they do not
@@ -159,10 +171,6 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     Logging::log("Opening a file at " + output_filename);
 
 
-
-
-
-
     for(auto row : game.map.grid){
         for (auto cell : row) {
             auto energy = cell.energy;
@@ -172,8 +180,6 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
             if(y.value > -1){
                 auto tempbreak = 45;
                 auto temp = y.value;
-
-
             }
         }
     }

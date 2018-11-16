@@ -97,7 +97,7 @@ public:
     void run_game();
     
     /** Retrieve and process commands, and update the game state for the current turn. */
-    void process_turn(std::map<uint, std::vector<std::string>> rawCommands);
+    void process_turn(std::map<uint, std::vector<AgentCommand>> rawCommands);
 
 };
 }

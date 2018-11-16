@@ -19,7 +19,6 @@ struct Snapshot;
 class Halite final {
     /** Transient game state. */
     unsigned long turn_number{};      /**< The turn number. */
-    Store store;                      /**< The entity store. */
 
     /** External game state. */
     Map &map;                         /**< The game map. */
@@ -36,6 +35,7 @@ class Halite final {
     std::mt19937 rng;                 /** The random number generator used for tie breaking. */
 
 public:
+    Store store;                      /**< The entity store. */
     PlayerLogs logs;                  /**< The player logs. */
 
     /**
