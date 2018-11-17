@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.8)
 
 project(environment)
 
+find_package(Torch REQUIRED)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -139,6 +141,7 @@ else()
         # See: https://stackoverflow.com/questions/35116327
         target_link_libraries(halite -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static)
         target_link_libraries(halite_test -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static Catch2::Catch)
+        target_link_libraries(example "${TORCH_LIBRARIES}")
     endif()
 endif()
 
