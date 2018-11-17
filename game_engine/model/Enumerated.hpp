@@ -122,6 +122,8 @@ struct hash<Enumerated<T>> {
 
 typedef std::pair<long, std::string> AgentCommand;
 
+typedef std::vector<std::vector<float>> Frame;
+
 
 /** Type of ordered maps from ID to arbitrary value. */
 template<class K, class V>

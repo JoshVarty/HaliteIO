@@ -104,7 +104,8 @@ private:
 
     void train_network();
     
-    void parseGridIntoSlices(long playerId, hlt::Halite &game);
+    std::vector<Frame> parseGridIntoSlices(long playerId, hlt::Halite &game);
+
 
 public:
 

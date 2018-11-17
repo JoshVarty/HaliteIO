@@ -24,7 +24,7 @@ double Agent::step(){
     return 0.0;
 }
 
-void Agent::parseGridIntoSlices(long playerId, hlt::Halite &game) {
+std::vector<Frame> Agent::parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
     int no_of_cols = 64;
     int no_of_rows = 64;
@@ -56,17 +56,17 @@ void Agent::parseGridIntoSlices(long playerId, hlt::Halite &game) {
     // current_unit.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
 
     //Board info
-    std::vector<std::vector<float>> halite_locations;
-    std::vector<std::vector<float>> steps_remaining;
+    Frame halite_locations;
+    Frame steps_remaining;
     //My global info
-    std::vector<std::vector<float>> my_ships;
-    std::vector<std::vector<float>> my_ships_halite;
-    std::vector<std::vector<float>> my_dropoffs;
-    std::vector<std::vector<float>> my_score;
+    Frame my_ships;
+    Frame my_ships_halite;
+    Frame my_dropoffs;
+    Frame my_score;
     //Enemy global info
-    std::vector<std::vector<float>> enemy_ships;
-    std::vector<std::vector<float>> enemy_ships_halite;
-    std::vector<std::vector<float>> enemy_dropoffs;
+    Frame enemy_ships;
+    Frame enemy_ships_halite;
+    Frame enemy_dropoffs;
     std::vector<std::vector<float>> enemy_score;
 
     float initial_value = 0.0;
@@ -127,14 +127,14 @@ void Agent::parseGridIntoSlices(long playerId, hlt::Halite &game) {
         for(auto dropoff : player.dropoffs) {
             if(player.id.value == playerId) {
                 my_dropoffs[y][x] = 1;
-            } 
+            }
             else {
                 //We mark the enemy spawn as a 'dropoff' because it can also be used as one
                 enemy_dropoffs[y][x] = 2;
             }
         }
 
-        //Player score
+        // Player score
         auto score = player.energy;
         if(player.id.value == playerId) {
             my_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
@@ -143,6 +143,9 @@ void Agent::parseGridIntoSlices(long playerId, hlt::Halite &game) {
             enemy_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
         }
     }
+
+    std::vector<Frame> frame { halite_locations, steps_remaining, my_ships, my_ships_halite, my_dropoffs, my_score, enemy_ships, enemy_ships_halite, enemy_dropoffs, enemy_score};
+    return frame;
 }
 
 std::vector<Agent::rollout_item> Agent::generate_rollout() {
@@ -196,7 +199,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
         for (auto playerPair : players) {
 
 
-            parseGridIntoSlices(0, game);
+            auto frames = parseGridIntoSlices(0, game);
 
             auto id = playerPair.first.value;
             std::vector<AgentCommand> playerCommands;
