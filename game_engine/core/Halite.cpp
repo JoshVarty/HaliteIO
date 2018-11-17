@@ -14,8 +14,7 @@ namespace hlt {
     
 
 
-Agent::Agent()
-{
+Agent::Agent() {
 }
 
 double Agent::step(){
@@ -23,6 +22,127 @@ double Agent::step(){
     auto processed_rollout = process_rollout(rollout);
 
     return 0.0;
+}
+
+void Agent::parseGridIntoSlices(long playerId, hlt::Halite &game) {
+
+    int no_of_cols = 64;
+    int no_of_rows = 64;
+    int offset = 0;
+
+    int numRows = game.map.grid.size();
+    int totalSteps = 0;
+    if (numRows == 64) {
+        totalSteps = 501;
+    } 
+    else if (numRows == 56) {
+        totalSteps = 476;
+    }
+    else if (numRows == 48) {
+        totalSteps = 451;
+    }
+    else if (numRows == 40) {
+        totalSteps = 426;
+    }
+    else {
+        totalSteps = 401;
+    }
+
+    //TODO:
+    // //My current unit info
+    // std::vector<std::vector<float>> unit_halite;
+    // std::vector<std::vector<float>> current_unit;
+    // unit_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    // current_unit.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+
+    //Board info
+    std::vector<std::vector<float>> halite_locations;
+    std::vector<std::vector<float>> steps_remaining;
+    //My global info
+    std::vector<std::vector<float>> my_ships;
+    std::vector<std::vector<float>> my_ships_halite;
+    std::vector<std::vector<float>> my_dropoffs;
+    std::vector<std::vector<float>> my_score;
+    //Enemy global info
+    std::vector<std::vector<float>> enemy_ships;
+    std::vector<std::vector<float>> enemy_ships_halite;
+    std::vector<std::vector<float>> enemy_dropoffs;
+    std::vector<std::vector<float>> enemy_score;
+
+    float initial_value = 0.0;
+    halite_locations.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    steps_remaining.resize(no_of_rows, std::vector<float>(no_of_cols, totalSteps - game.turn_number));
+    my_ships.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    my_ships_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    my_dropoffs.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    enemy_ships.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    enemy_ships_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    enemy_dropoffs.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+
+    int cellY = 0;
+    for(auto row : game.map.grid) {
+        int cellX = 0;
+        for (auto cell: row) {
+            auto x = offset + cellX;
+            auto y = offset + cellY;
+
+            //auto halite = cell.energy.value;
+            halite_locations[y][x] = cell.energy;
+
+            if(cell.entity.value != -1) {
+                //There is a ship here
+                auto entity = game.store.get_entity(cell.entity);
+
+                if(entity.owner.value == playerId) {
+                    my_ships_halite[y][x] = entity.energy;
+                    my_ships[y][x] = 1;
+                }
+                else {
+                    enemy_ships_halite[y][x] = entity.energy;
+                    enemy_ships[y][x] = 2;
+                }
+            }
+            
+            cellX = cellX + 1;
+        }
+        cellY = cellY + 1;
+    }
+
+    for(auto playerPair : game.store.players) {
+
+        auto player = playerPair.second;
+        auto spawn = player.factory;
+        auto x = offset + spawn.x;
+        auto y = offset + spawn.y;
+
+        if(player.id.value == playerId) {
+            //We mark our spawn as a 'dropoff' because it can also be used as one
+            my_dropoffs[y][x] = 1;
+        } 
+        else {
+            //We mark the enemy spawn as a 'dropoff' because it can also be used as one
+            enemy_dropoffs[y][x] = 2;
+        }
+
+        for(auto dropoff : player.dropoffs) {
+            if(player.id.value == playerId) {
+                my_dropoffs[y][x] = 1;
+            } 
+            else {
+                //We mark the enemy spawn as a 'dropoff' because it can also be used as one
+                enemy_dropoffs[y][x] = 2;
+            }
+        }
+
+        //Player score
+        auto score = player.energy;
+        if(player.id.value == playerId) {
+            my_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
+        }
+        else {
+            enemy_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
+        }
+    }
 }
 
 std::vector<Agent::rollout_item> Agent::generate_rollout() {
@@ -74,6 +194,9 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
 
         auto &players = game.store.players;
         for (auto playerPair : players) {
+
+
+            parseGridIntoSlices(0, game);
 
             auto id = playerPair.first.value;
             std::vector<AgentCommand> playerCommands;

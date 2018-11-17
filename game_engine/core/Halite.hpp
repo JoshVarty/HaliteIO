@@ -103,6 +103,8 @@ private:
     std::vector<processed_rollout_item> process_rollout(std::vector<rollout_item> rollout);
 
     void train_network();
+    
+    void parseGridIntoSlices(long playerId, hlt::Halite &game);
 
 public:
 
