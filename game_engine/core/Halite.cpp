@@ -196,8 +196,8 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
         std::map<long, std::vector<AgentCommand>> commands;
 
         auto &players = game.store.players;
+        int offset = 0;
         for (auto playerPair : players) {
-
 
             auto frames = parseGridIntoSlices(0, game);
 
@@ -210,6 +210,22 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
                 auto location = entityPair.second;
 
                 auto entity = game.store.get_entity(entityId);
+                int no_of_rows = 64;
+                int no_of_cols = 64;
+                float initial_value = 0.0;
+
+                Frame entityLocation; 
+                entityLocation.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+                entityLocation[offset + location.y][offset + location.x];
+                
+                Frame entityHalite; 
+                entityHalite.resize(no_of_rows, std::vector<float>(no_of_cols, entity.energy));
+
+                frames.push_back(entityLocation);
+                frames.push_back(entityHalite);
+
+                //TODO: Ask the neural network what to do now?
+
                 std::string command = "";
 
                 if(game.map.grid[location.y][location.x].energy >= 100 && !entity.energy >= 1000) {
