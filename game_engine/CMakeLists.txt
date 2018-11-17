@@ -136,12 +136,12 @@ else()
         # But link statically on MinGW, since it doesn't have address sanitizer and keeping MinGW dlls around is a pain
         target_link_libraries(halite pthread libzstd_static)
         target_link_libraries(halite_test pthread libzstd_static Catch2::Catch)
+        target_link_libraries(halite "${TORCH_LIBRARIES}")
     else()
         # On Linux, make sure to link using the whole-archive option
         # See: https://stackoverflow.com/questions/35116327
         target_link_libraries(halite -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static)
         target_link_libraries(halite_test -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static Catch2::Catch)
-        target_link_libraries(example "${TORCH_LIBRARIES}")
     endif()
 endif()
 

@@ -14,7 +14,6 @@
 
 #include "tclap/CmdLine.h"
 
-
 void ppo(hlt::Agent myAgent, unsigned int numEpisodes) {
     std::vector<double> allScores;
     std::deque<double> lastHundredScores;
