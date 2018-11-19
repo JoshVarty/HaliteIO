@@ -168,9 +168,7 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     hlt::Halite game(map, game_statistics, replay);    
 
-    //Initialize implementation
-    auto impl = std::make_unique<HaliteImpl>(game);
-    impl->initialize_game(numPlayers);
+    game.initialize_game(numPlayers);
 
     const auto &constants = Constants::get();
     game.replay.players.insert(game.store.players.begin(), game.store.players.end());
@@ -189,10 +187,9 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
         // Add state of entities at start of turn.
         // First, update inspiration flags, so they can be used for
         // movement/mining and so they are part of the replay.
-        impl->update_inspiration();
+        game.update_inspiration();
         game.replay.full_frames.back().add_entities(game.store);
 
-        //TODO: implement actual commands
         std::map<long, std::vector<AgentCommand>> commands;
 
         auto &players = game.store.players;
@@ -256,12 +253,12 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
             commands[id] = playerCommands;
         }
 
-        impl->process_turn(commands);
+        game.process_turn(commands);
 
         // Add end of frame state.
         game.replay.full_frames.back().add_end_state(game.store);
 
-        if (impl->game_ended()) {
+        if (game.game_ended()) {
             break;
         }
     }
@@ -269,12 +266,12 @@ std::vector<Agent::rollout_item> Agent::generate_rollout() {
     game.game_statistics.number_turns = game.turn_number;
     // Add state of entities at end of game.
     game.replay.full_frames.emplace_back();
-    impl->update_inspiration();
+    game.update_inspiration();
     game.replay.full_frames.back().add_entities(game.store);
-    impl->update_player_stats();
+    game.update_player_stats();
     game.replay.full_frames.back().add_end_state(game.store);
 
-    impl->rank_players();
+    game.rank_players();
     Logging::log("Game has ended");
     Logging::set_turn_number(Logging::ended);
     game.logs.set_turn_number(PlayerLog::ended);
@@ -390,6 +387,32 @@ Halite::Halite(Map &map,
 void Halite::run_game(int numPlayers, const Snapshot &snapshot) {
     // impl->initialize_game(numPlayers);
     // impl->run_game();
+}
+
+
+void Halite::initialize_game(int numPlayers){
+    impl->initialize_game(numPlayers);
+}
+    
+void Halite::update_inspiration() {
+    impl->update_inspiration(); 
+}
+
+/** Retrieve and process commands, and update the game state for the current turn. */
+void Halite::process_turn(std::map<long, std::vector<AgentCommand>> rawCommands){
+    impl->process_turn(rawCommands);
+}
+
+bool Halite::game_ended() {
+    return impl->game_ended();
+}
+
+void Halite::update_player_stats(){
+    impl->update_player_stats();
+}
+
+void Halite::rank_players(){
+    impl->rank_players();
 }
 
 std::string Halite::to_snapshot(const hlt::mapgen::MapParameters &map_parameters) {

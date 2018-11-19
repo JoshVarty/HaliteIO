@@ -57,6 +57,19 @@ public:
      */
     void run_game(int numPlayers, const Snapshot &snapshot);
 
+    void initialize_game(int numPlayers);
+
+    void update_inspiration();
+    
+    /** Retrieve and process commands, and update the game state for the current turn. */
+    void process_turn(std::map<long, std::vector<AgentCommand>> rawCommands);
+    
+    bool game_ended();
+    
+    void rank_players();
+    
+    void update_player_stats();
+
     /** Generate a snapshot string from current game state. */
     std::string to_snapshot(const mapgen::MapParameters &map_parameters);
 
