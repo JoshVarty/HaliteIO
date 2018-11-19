@@ -380,8 +380,7 @@ Halite::Halite(Map &map,
         map(map),
         game_statistics(game_statistics),
         replay(replay),
-
-        //impl(std::make_unique<HaliteImpl>(*this)),
+        impl(std::make_unique<HaliteImpl>(*this)),
         rng(replay.map_generator_seed) {}
 
 /**

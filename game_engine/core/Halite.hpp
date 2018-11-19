@@ -31,7 +31,7 @@ class Halite final {
 
     friend class Agent;
 
-    //std::unique_ptr<HaliteImpl> impl; /**< The pointer to implementation. */
+    std::unique_ptr<HaliteImpl> impl; /**< The pointer to implementation. */
     std::mt19937 rng;                 /** The random number generator used for tie breaking. */
 
 public:
@@ -55,8 +55,7 @@ public:
      * @param numPlayers The number of players in the game
      * @param snapshot A snapshot of game state.
      */
-    void run_game(int numPlayers,
-                  const Snapshot &snapshot);
+    void run_game(int numPlayers, const Snapshot &snapshot);
 
     /** Generate a snapshot string from current game state. */
     std::string to_snapshot(const mapgen::MapParameters &map_parameters);
