@@ -11,10 +11,11 @@
 #include "Logging.hpp"
 #include "Replay.hpp"
 #include "Snapshot.hpp"
+#include "Agent.hpp"
 
 #include "tclap/CmdLine.h"
 
-void ppo(hlt::Agent myAgent, unsigned int numEpisodes) {
+void ppo(Agent myAgent, unsigned int numEpisodes) {
     std::vector<double> allScores;
     std::deque<double> lastHundredScores;
 
@@ -45,6 +46,6 @@ void ppo(hlt::Agent myAgent, unsigned int numEpisodes) {
 int main(int argc, char *argv[]) {
     auto &constants = hlt::Constants::get_mut();
 
-    hlt::Agent agent;
+    Agent agent;
     ppo(agent, 500);
 }
