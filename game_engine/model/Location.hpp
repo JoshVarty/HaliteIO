@@ -6,7 +6,6 @@
 #include "Constants.hpp"
 
 #include "util.hpp"
-#include "nlohmann/json_fwd.hpp"
 
 namespace hlt {
 

@@ -1,6 +1,5 @@
 #include "GameEvent.hpp"
 
-#include "nlohmann/json.hpp"
 
 namespace hlt {
 

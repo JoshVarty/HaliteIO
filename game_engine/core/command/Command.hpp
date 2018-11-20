@@ -5,8 +5,6 @@
 #include "Map.hpp"
 #include "Player.hpp"
 
-#include "nlohmann/json_fwd.hpp"
-
 namespace hlt {
 
 class CommandTransaction;

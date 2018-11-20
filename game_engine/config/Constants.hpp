@@ -3,8 +3,6 @@
 
 #include "Units.hpp"
 
-#include "nlohmann/json_fwd.hpp"
-
 int main(int argc, char *argv[]);
 
 namespace hlt {

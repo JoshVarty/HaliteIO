@@ -6,8 +6,6 @@
 #include "Entity.hpp"
 #include "Player.hpp"
 
-#include "nlohmann/json_fwd.hpp"
-
 namespace hlt {
 
 /** Cell on the Halite map. */

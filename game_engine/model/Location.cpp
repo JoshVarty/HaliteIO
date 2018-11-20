@@ -1,8 +1,6 @@
 #include "BotCommunicationError.hpp"
 #include "Location.hpp"
 
-#include "nlohmann/json.hpp"
-
 namespace hlt {
 
 /**

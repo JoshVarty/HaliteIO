@@ -8,7 +8,6 @@
 #include "Map.hpp"
 #include "Statistics.hpp"
 
-#include "nlohmann/json_fwd.hpp"
 
 namespace hlt {
 

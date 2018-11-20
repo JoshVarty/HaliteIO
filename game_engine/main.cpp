@@ -162,10 +162,10 @@ int main(int argc, char *argv[]) {
         idx++;
     }
 
-    // JSON results info, used by backend
-    nlohmann::json results;
-    results["error_logs"] = nlohmann::json::object();
-    results["terminated"] = nlohmann::json::object();
+    // // JSON results info, used by backend
+    // nlohmann::json results;
+    // results["error_logs"] = nlohmann::json::object();
+    // results["terminated"] = nlohmann::json::object();
 
     // Output replay file for visualizer
 
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
         filename_buf << "-" << map.height << ".hlt";
         auto filename = filename_buf.str();
         std::string output_filename = replay_directory + filename;
-        results["replay"] = output_filename;
+        //results["replay"] = output_filename;
         bool enable_compression = !no_compression_switch.getValue();
         try {
             replay.output(output_filename, enable_compression);
@@ -234,7 +234,7 @@ int main(int argc, char *argv[]) {
                     log_file.open(log_filepath, std::ios_base::out);
                 }
 
-                results["error_logs"][to_string(player_id)] = log_filepath;
+                //results["error_logs"][to_string(player_id)] = log_filepath;
                 log_file.write(error_log.c_str(), error_log.size());
                 Logging::log("Player has log output. Writing a log at " + log_filepath,
                              Logging::Level::Info, player.id);
@@ -243,28 +243,28 @@ int main(int argc, char *argv[]) {
                 Logging::log("Player has log output, but log was suppressed.",
                              Logging::Level::Info, player.id);
             }
-            results["terminated"][to_string(player_id)] = player.terminated;
+            //results["terminated"][to_string(player_id)] = player.terminated;
         }
     }
 
-    results["map_width"] = map_width;
-    results["map_height"] = map_height;
-    results["map_seed"] = seed;
+    //results["map_width"] = map_width;
+    //results["map_height"] = map_height;
+    //results["map_seed"] = seed;
     std::ostringstream stream;
     stream << type;
-    results["map_generator"] = stream.str();
-    results["final_snapshot"] = game.to_snapshot(map_parameters);
-    results["stats"] = nlohmann::json::object();
+    //results["map_generator"] = stream.str();
+    //results["final_snapshot"] = game.to_snapshot(map_parameters);
+    //results["stats"] = nlohmann::json::object();
     for (const auto &stats : replay.game_statistics.player_statistics) {
-        results["stats"][to_string(stats.player_id)] = {
-            {"rank", stats.rank},
-            {"score", stats.turn_productions.back()}
-        };
+        // results["stats"][to_string(stats.player_id)] = {
+        //     {"rank", stats.rank},
+        //     {"score", stats.turn_productions.back()}
+        // };
     }
 
-    if (json_results_switch.getValue()) {
-        std::cout << results.dump(JSON_INDENT_LEVEL) << std::endl;
-    }
+    // if (json_results_switch.getValue()) {
+    //     std::cout << results.dump(JSON_INDENT_LEVEL) << std::endl;
+    // }
 
     return 0;
 }
