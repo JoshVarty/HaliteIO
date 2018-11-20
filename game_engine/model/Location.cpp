@@ -3,19 +3,7 @@
 
 #include "nlohmann/json.hpp"
 
-/** A JSON key and value corresponding to a field. */
-#define FIELD_TO_JSON(x) {#x, location.x}
-
 namespace hlt {
-
-/**
- * Convert a Direction to JSON format.
- * @param[out] json The output JSON.
- * @param direction The Direction to convert.
- */
-void to_json(nlohmann::json &json, const Direction &direction) {
-    json = to_string(static_cast<char>(direction));
-}
 
 /**
  * Convert a char to a Direction.
@@ -61,15 +49,6 @@ std::istream &operator>>(std::istream &istream, Direction &direction) {
     return istream;
 }
 
-
-/**
- * Convert a Location to JSON format.
- * @param[out] json The output JSON.
- * @param location The Location to convert.
- */
-void to_json(nlohmann::json &json, const Location &location) {
-    json = {FIELD_TO_JSON(x), FIELD_TO_JSON(y)};
-}
 
 /**
  * Write a Location to bot serial format.

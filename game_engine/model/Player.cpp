@@ -3,23 +3,7 @@
 #include "Entity.hpp"
 #include "Player.hpp"
 
-/** A JSON key and value corresponding to a field. */
-#define FIELD_TO_JSON(x) {#x, player.x}
-
 namespace hlt {
-
-/**
- * Convert a Player to JSON format.
- * @param[out] json The output JSON.
- * @param player The Player to convert.
- */
-void to_json(nlohmann::json &json, const Player &player) {
-    json = {{"player_id", player.id},
-            FIELD_TO_JSON(name),
-            FIELD_TO_JSON(energy),
-            {"factory_location", player.factory},
-            FIELD_TO_JSON(entities)};
-}
 
 /**
  * Write a Player to bot serial format.

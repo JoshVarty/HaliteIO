@@ -23,13 +23,6 @@ public:
     static constexpr auto NEIGHBOR_COUNT = 4;
 
     /**
-     * Convert a Map to JSON format.
-     * @param[out] json The output JSON.
-     * @param map The Map to convert.
-     */
-    friend void to_json(nlohmann::json &json, const Map &map);
-
-    /**
      * Given a location of a cell, return its neighbors.
      * @param location The location of the cell we want the neighbors of.
      * @return Array of neighbor locations.

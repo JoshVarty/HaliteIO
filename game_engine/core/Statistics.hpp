@@ -34,13 +34,6 @@ struct PlayerStatistics {
     std::unordered_map<Location, energy_type> halite_per_dropoff{}; /**< The amount of halite collected at each dropoff. */
 
     /**
-     * Convert Player statistics to JSON format.
-     * @param[out] json The output JSON.
-     * @param stats The statistics to convert.
-     */
-    friend void to_json(nlohmann::json &json, const PlayerStatistics &statistics);
-
-    /**
      * Compare two players to rank them.
      *
      * @param other The statistics of the other player.
@@ -62,13 +55,6 @@ struct GameStatistics {
     std::vector<PlayerStatistics> player_statistics;        /**< Statistics for each player. */
     unsigned long number_turns{};                           /**< Total number of turns that finished before game ends. */
 
-    /**
-     * Convert game statistics to json format
-     *
-     * @param[out] json Empty json object to fill
-     * @param statistics Game statistics struct to convert to json
-     */
-    friend void to_json(nlohmann::json &json, const GameStatistics &statistics);
 };
 
 }

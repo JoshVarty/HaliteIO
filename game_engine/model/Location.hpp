@@ -20,13 +20,6 @@ enum class Direction : char {
 };
 
 /**
- * Convert a Direction to JSON format.
- * @param[out] json The output JSON.
- * @param direction The Direction to convert.
- */
-void to_json(nlohmann::json &json, const Direction &direction);
-
-/**
  * Read a Direction from bot serial format.
  * @param istream The input stream.
  * @param[out] direction The direction to read.
@@ -55,13 +48,6 @@ struct Location final {
      * @return The output stream.
      */
     friend std::ostream &operator<<(std::ostream &ostream, const Location &location);
-
-    /**
-     * Convert a Location to JSON format.
-     * @param[out] json The output JSON.
-     * @param location The Location to convert.
-     */
-    friend void to_json(nlohmann::json &json, const Location &location);
 
     /**
      * Construct Location from coordinates.

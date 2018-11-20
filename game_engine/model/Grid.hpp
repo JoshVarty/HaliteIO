@@ -39,15 +39,6 @@ public:
     Grid() = default;
 
     /**
-     * Convert a Grid to JSON format.
-     * @tparam Entry The type of the grid entries.
-     * @param[out] json The output JSON.
-     * @param grid The Grid to convert.
-     */
-    template<class T>
-    friend void to_json(nlohmann::json &json, const hlt::Grid<T> &grid);
-
-    /**
      * Get a reference to an entry at grid coordinates.
      * @param x The grid x-coordinate.
      * @param y The grid y-coordinate.

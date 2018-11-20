@@ -68,11 +68,11 @@ int main(int argc, char *argv[]) {
         from_json(constants_json, constants);
     }
 
-    // If requested, print constants and exit
-    if (print_constants_switch.getValue()) {
-        std::cout << nlohmann::json(constants).dump() << std::endl;
-        return 0;
-    }
+    // // If requested, print constants and exit
+    // if (print_constants_switch.getValue()) {
+    //     std::cout << nlohmann::json(constants).dump() << std::endl;
+    //     return 0;
+    // }
 
     if (turn_limit_arg.isSet()) {
         constants.MAX_TURNS = turn_limit_arg.getValue();

@@ -87,13 +87,6 @@ struct Constants {
     }
 
     /**
-     * Encode the constants to JSON.
-     * @param[out] json The JSON output.
-     * @param constants The constants.
-     */
-    friend void to_json(nlohmann::json &json, const Constants &constants);
-
-    /**
      * Decode the constants from JSON.
      * @param json The JSON input.
      * @param[out] constants The decoded constants.

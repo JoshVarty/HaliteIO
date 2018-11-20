@@ -21,11 +21,6 @@ public:
         Construct = 'c'
     };
 
-    /**
-     * Convert to JSON format.
-     * @param[out] json The JSON output.
-     */
-    virtual void to_json(nlohmann::json &json) const = 0;
 
     /**
      * Convert to bot serial format.
@@ -60,20 +55,6 @@ public:
 };
 
 /**
- * Convert a Command to JSON format.
- * @param[out] json The output JSON.
- * @param command The command to convert.
- */
-void to_json(nlohmann::json &json, const Command &command);
-
-/**
- * Convert a Command ptr to JSON format.
- * @param[out] json The output JSON.
- * @param command The command to convert.
- */
-void to_json(nlohmann::json &json, const std::unique_ptr<Command> &command);
-
-/**
  * Read a Command from bot serial format.
  * @param istream The input stream.
  * @param[out] command The command to read.
@@ -96,12 +77,6 @@ public:
     const Direction direction;    /**< The direction in which to move. */
 
     /**
-     * Convert a MoveCommand to JSON format.
-     * @param[out] json The JSON output.
-     */
-    void to_json(nlohmann::json &json) const override;
-
-    /**
      * Convert to bot serial format.
      * @return The serialized command.
      */
@@ -118,11 +93,6 @@ public:
 /** Command for spawning an entity. */
 class SpawnCommand final : public TransactableCommand<SpawnCommand> {
 public:
-    /**
-     * Convert a SpawnCommand to JSON format.
-     * @param[out] json The JSON output.
-     */
-    void to_json(nlohmann::json &json) const override;
 
     /**
      * Convert to bot serial format.
@@ -142,12 +112,6 @@ class ConstructCommand final : public TransactableCommand<ConstructCommand> {
 public:
     /** The entity to use to construct. */
     const Entity::id_type entity;
-
-    /**
-     * Convert a ConstructCommand to JSON format.
-     * @param[out] json The JSON output.
-     */
-    void to_json(nlohmann::json &json) const override;
 
     /**
      * Convert to bot serial format.

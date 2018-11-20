@@ -18,25 +18,12 @@ class BaseEvent;
 using GameEvent = std::unique_ptr<BaseEvent>;
 
 /**
- * Convert a GameEvent to JSON format.
- * @param[out] json The output JSON.
- * @param game_event The GameEvent to convert.
- */
-void to_json(nlohmann::json &json, const GameEvent &gameEvent);
-
-/**
 * An event that happens during game simulation. Recorded for replay file to be used by visualizer.
 */
 class BaseEvent {
 
 public:
     Location location;      /**< Location of event  */
-
-    /**
-     * JSON encoding function, dispatched on game event subtypes.
-     * @param[out] json The JSON output.
-     */
-    virtual void to_json(nlohmann::json &json) const = 0;
 
     BaseEvent(Location location) : location(location) {};
 
@@ -56,12 +43,6 @@ class SpawnEvent : public BaseEvent {
     static constexpr auto GAME_EVENT_TYPE_NAME = "spawn";   /**< Name of event */
 
 public:
-    /**
-     * Convert spawn event to json format
-     *
-     * @param[out] json JSON to be filled by spawn event
-     */
-    void to_json(nlohmann::json &json) const override;
 
     /**
      * Create spawn event from location, energy, and owner id
@@ -84,12 +65,6 @@ class CaptureEvent : public BaseEvent {
     static constexpr auto GAME_EVENT_TYPE_NAME = "capture"; /**< Name of event */
 
 public:
-    /**
-     * Convert spawn event to json format
-     *
-     * @param[out] json JSON to be filled by spawn event
-     */
-    void to_json(nlohmann::json &json) const override;
 
     /**
      * Create spawn event from location, energy, and owner id
@@ -114,12 +89,6 @@ class CollisionEvent : public BaseEvent {
 
 public:
     /**
-     * Convert death event to json format
-     * @param[out] json JSON to be filled with death event
-     */
-    void to_json(nlohmann::json &json) const override;
-
-    /**
      * Create death event from location and owner id
      * @param location Location of entity death
      * @param owner_id Owner of dying entity
@@ -137,12 +106,6 @@ class ConstructionEvent : public BaseEvent {
     static constexpr auto GAME_EVENT_TYPE_NAME = "construct"; /**< Name of event */
 
 public:
-    /**
-     * Convert death event to json format
-     * @param[out] json JSON to be filled with death event
-     */
-    void to_json(nlohmann::json &json) const override;
-
     /**
      * Create death event from location and owner id
      * @param location Location of entity death

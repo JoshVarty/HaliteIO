@@ -27,8 +27,6 @@ struct CellInfo {
     dimension_type y;           /**< y position of the cell. */
     energy_type production;     /**< New production value of cell. */
 
-    friend void to_json(nlohmann::json &json, const CellInfo &cell_info);
-
     CellInfo(Location location, Cell cell) :
         x(location.x), y(location.y), production(cell.energy) {}
 };
@@ -38,8 +36,6 @@ struct EntityInfo {
     dimension_type y;
     energy_type energy;
     bool is_inspired;
-
-    friend void to_json(nlohmann::json &json, const EntityInfo &entity_info);
 
     /**
      * Construct entity info from location and entity
@@ -60,13 +56,6 @@ struct Turn {
     std::vector<GameEvent> events;       /**< Events occurring this turn (spawns, deaths, etc) for replay */
     std::vector<CellInfo> cells;         /**< Cells that changed on this turn */
     id_map<Player, Entities> entities{}; /**< Current entities and their information. */
-
-    /**
-     * Convert turn to JSON format.
-     * @param[out] json The output JSON.
-     * @param stats The turn to convert.
-     */
-    friend void to_json(nlohmann::json &json, const Turn &turn);
 
     /**
      * Given the game store, reformat and store entity state at start of turn in replay
@@ -113,24 +102,6 @@ struct Replay {
 
     unsigned int map_generator_seed;                            /**< Seed used in random number generator for map */
     const Map production_map;                                   /**< Map of cells game was played on, including factory and other cells. Struct incldues name of map generator */
-
-    /**
-     * Create json format for replay struct ptr
-     * Ptr argument is useful for output replay function, which will pass the replay struct as "this"
-     *
-     * @param[out] json JSON to fill
-     * @param replay: ptr to replay struct to convert to json
-     */
-    friend void to_json(nlohmann::json &json, const Replay *replay);
-
-    /**
-     * Create json format for replay struct
-     * Simply forwards to function requiring replay ptr.
-     *
-     * @param[out] json JSON to fill
-     * @param replay Replay struct to convert to json
-     */
-    friend void to_json(nlohmann::json &json, const Replay &replay);
 
     /**
      * Output replay into file. Replay will be in json format and may be compressed

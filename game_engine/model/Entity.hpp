@@ -21,13 +21,6 @@ struct Entity final : public Enumerated<Entity> {
     bool is_inspired;           /**< Track whether or not this entity is currently inspired. */
 
     /**
-     * Convert an Entity to JSON format.
-     * @param[out] json The output JSON.
-     * @param entity The entity to convert.
-     */
-    friend void to_json(nlohmann::json &json, const Entity &entity);
-
-    /**
      * Write an Entity to bot serial format.
      * @param ostream The output stream.
      * @param entity The entity to write.

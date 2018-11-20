@@ -55,13 +55,6 @@ struct Player final : public Enumerated<Player> {
     Location get_entity_location(const Entity::id_type &id) const;
 
     /**
-     * Convert a Player to JSON format.
-     * @param[out] json The output JSON.
-     * @param player The Player to convert.
-     */
-    friend void to_json(nlohmann::json &json, const Player &player);
-
-    /**
      * Write a Player to bot serial format.
      * @param ostream The output stream.
      * @param player The Player to write.

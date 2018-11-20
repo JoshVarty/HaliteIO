@@ -17,13 +17,6 @@ struct Cell final {
     Player::id_type owner = Player::None;   /**< Owner of this Cell if there is one. */
 
     /**
-     * Convert a Cell to JSON format.
-     * @param[out] json The output JSON.
-     * @param cell The cell to convert.
-     */
-    friend void to_json(nlohmann::json &json, const Cell &cell);
-
-    /**
      * Write a Cell to bot serial format.
      * @param ostream The output stream.
      * @param cell The cell to write.

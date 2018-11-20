@@ -1,8 +1,5 @@
 #include "Map.hpp"
 
-/** Convert a field to JSON. */
-#define FIELD_TO_JSON(x) {#x, map.x}
-
 namespace hlt {
 
 /**
@@ -20,12 +17,6 @@ std::array<Location, Map::NEIGHBOR_COUNT> Map::get_neighbors(const Location &loc
              {(x - 1 + width) % width, y},
              {x, (y + 1) % height},
              {x, (y - 1 + height) % height}}};
-}
-
-void to_json(nlohmann::json &json, const Map &map) {
-    json = {FIELD_TO_JSON(height),
-            FIELD_TO_JSON(width),
-            FIELD_TO_JSON(grid)};
 }
 
 /**
