@@ -1,5 +1,6 @@
 #include "CommandTransaction.hpp"
 #include "Store.hpp"
+#include <memory>
 
 namespace hlt {
 

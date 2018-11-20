@@ -62,9 +62,9 @@ int main(int argc, char *argv[]) {
 
     // Update the game constants
     if (constants_arg.isSet()) {
-        std::ifstream constants_file(constants_arg.getValue());
-        nlohmann::json constants_json;
-        constants_file >> constants_json;
+        // std::ifstream constants_file(constants_arg.getValue());
+        // nlohmann::json constants_json;
+        // constants_file >> constants_json;
         //from_json(constants_json, constants);
     }
 

@@ -4,6 +4,7 @@
 #include "PlayerLog.hpp"
 #include "Store.hpp"
 #include "mapgen/Generator.hpp"
+#include <memory>
 
 namespace hlt {
 

@@ -1,4 +1,5 @@
 #include "CommandError.hpp"
+#include <sstream>
 
 namespace hlt {
 

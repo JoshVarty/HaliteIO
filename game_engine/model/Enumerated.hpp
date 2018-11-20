@@ -4,8 +4,8 @@
 #include <iostream>
 #include <unordered_map>
 #include <utility>
+#include <map>
 
-#include "nlohmann/json.hpp"
 
 /** The internal ID type. */
 using id_value_type = long;

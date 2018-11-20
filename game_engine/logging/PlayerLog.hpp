@@ -2,6 +2,7 @@
 #define PLAYERLOG_HPP
 
 #include <fstream>
+#include <sstream>
 
 #include "Player.hpp"
 

@@ -2,6 +2,7 @@
 
 #include "Entity.hpp"
 #include "Player.hpp"
+#include <assert.h>
 
 namespace hlt {
 

@@ -1,4 +1,5 @@
 #include "Store.hpp"
+#include <assert.h>
 
 namespace hlt {
 

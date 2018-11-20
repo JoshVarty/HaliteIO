@@ -4,6 +4,7 @@
 #include <deque>
 #include <stdexcept>
 #include <string>
+#include <memory>
 
 #include "BotError.hpp"
 #include "Command.hpp"

@@ -7,6 +7,7 @@
 #include "Store.hpp"
 #include "Map.hpp"
 #include "Statistics.hpp"
+#include <memory>
 
 
 namespace hlt {

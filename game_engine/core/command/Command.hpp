@@ -4,6 +4,7 @@
 #include "Entity.hpp"
 #include "Map.hpp"
 #include "Player.hpp"
+#include <memory>
 
 namespace hlt {
 
