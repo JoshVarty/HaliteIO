@@ -50,11 +50,6 @@ struct class_id final {
         return ostream << id.value;
     }
 
-    /** JSON deserialization. */
-    friend void from_json(const nlohmann::json &json, class_id &id) {
-        nlohmann::from_json(json, id.value);
-    }
-
     /** String conversion. */
     friend std::string to_string(const class_id &id) {
         return std::to_string(id.value);

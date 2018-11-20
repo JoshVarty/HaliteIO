@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         std::ifstream constants_file(constants_arg.getValue());
         nlohmann::json constants_json;
         constants_file >> constants_json;
-        from_json(constants_json, constants);
+        //from_json(constants_json, constants);
     }
 
     // // If requested, print constants and exit

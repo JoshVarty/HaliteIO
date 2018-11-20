@@ -86,13 +86,6 @@ struct Constants {
         return instance;
     }
 
-    /**
-     * Decode the constants from JSON.
-     * @param json The JSON input.
-     * @param[out] constants The decoded constants.
-     */
-    friend void from_json(const nlohmann::json &json, Constants &constants);
-
     /** Delete the copy constructor. */
     Constants(const Constants &) = delete;
 
