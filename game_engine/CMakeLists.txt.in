@@ -5,16 +5,6 @@ project(deps-download NONE)
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 include(ExternalProject)
-ExternalProject_Add(catch-download
-  URL               https://github.com/catchorg/Catch2/archive/v2.2.3.zip
-  URL_HASH          SHA256=659679a47edb72f0bdc535770368d5fac4abd115f02376e3c5990fdd6fac4629
-  PREFIX            ${EXTERNAL_INSTALL_LOCATION}
-  SOURCE_DIR        ${EXTERNAL_INSTALL_LOCATION}/catch
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-  TEST_COMMAND      ""
-)
 
 ExternalProject_Add(tclap-download
     URL https://netix.dl.sourceforge.net/project/tclap/tclap-1.2.2.tar.gz

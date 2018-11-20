@@ -96,7 +96,7 @@ if(result)
 endif()
 
 add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake EXCLUDE_FROM_ALL)
-add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/catch)
+#add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/catch)
 
 include_directories(${EXTERNAL_INSTALL_LOCATION}/zstd/lib ${EXTERNAL_INSTALL_LOCATION}/tclap/include)
 link_directories(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake/lib)
@@ -124,28 +124,28 @@ add_dependencies(halite_test libzstd_static)
 if(APPLE)
     # No static linkage here - https://stackoverflow.com/questions/5259249/creating-static-mac-os-x-c-build
     target_link_libraries(halite pthread libzstd_static)
-    target_link_libraries(halite_test pthread libzstd_static Catch2::Catch)
+    target_link_libraries(halite_test pthread libzstd_static)
 elseif(MSVC)
     target_link_libraries(halite libzstd_static)
-    target_link_libraries(halite_test libzstd_static Catch2::Catch)
+    target_link_libraries(halite_test libzstd_static)
 else()
     if(CMAKE_BUILD_TYPE MATCHES Debug AND NOT MINGW)
         # Link dynamically on Linux since AddressSanitizer doesn't work with static linkage
         # But link statically on MinGW, since it doesn't have address sanitizer and keeping MinGW dlls around is a pain
         target_link_libraries(halite pthread libzstd_static)
-        target_link_libraries(halite_test pthread libzstd_static Catch2::Catch)
+        target_link_libraries(halite_test pthread libzstd_static)
     else()
         # On Linux, make sure to link using the whole-archive option
         # See: https://stackoverflow.com/questions/35116327
         target_link_libraries(halite -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static)
-        target_link_libraries(halite_test -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static Catch2::Catch)
+        target_link_libraries(halite_test -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static)
     endif()
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${EXTERNAL_INSTALL_LOCATION}/catch/contrib)
-include(Catch)
-enable_testing()
-catch_discover_tests(halite_test)
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${EXTERNAL_INSTALL_LOCATION}/catch/contrib)
+#include(Catch)
+#enable_testing()
+#catch_discover_tests(halite_test)
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 add_dependencies(check halite_test)
