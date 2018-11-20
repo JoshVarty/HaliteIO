@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.8)
 
 project(environment)
 
+find_package(Torch REQUIRED)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -97,3 +99,6 @@ else()
 endif()
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
+
+target_link_libraries(halite "${TORCH_LIBRARIES}")
+

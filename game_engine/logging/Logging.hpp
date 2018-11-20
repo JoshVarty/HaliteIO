@@ -78,20 +78,20 @@ struct Logging {
      * @param player The player sending the message.
      */
     template<class Message>
-    static void log(const Message &message, Level level = Level::Info,
-                    class_id<hlt::Player> player = Enumerated<hlt::Player>::None) {
-        if (!Logging::enabled) {
-            return;
-        }
-        auto level_num = static_cast<int>(level);
-        if (level_num >= static_cast<int>(Logging::level)) {
-            std::lock_guard<std::mutex> guard(Logging::cerr_mutex);
-            if constexpr (std::is_convertible_v<Message, std::string>) {
-                _log(message, level, player);
-            } else {
-                _log(message(), level, player);
-            }
-        }
+    static void log(const Message &message, Level level = Level::Info, class_id<hlt::Player> player = Enumerated<hlt::Player>::None) {
+        return;
+        // if (!Logging::enabled) {
+        //     return;
+        // }
+        // auto level_num = static_cast<int>(level);
+        // if (level_num >= static_cast<int>(Logging::level)) {
+        //     std::lock_guard<std::mutex> guard(Logging::cerr_mutex);
+        //     if constexpr (std::is_convertible_v<Message, std::string>) {
+        //         _log(message, level, player);
+        //     } else {
+        //         _log(message(), level, player);
+        //     }
+        // }
     }
 
     /**

@@ -10,6 +10,8 @@
 #include "Replay.hpp"
 #include "Snapshot.hpp"
 
+#include <torch/torch.h>
+
 /** The platform-specific path separator. */
 #ifdef _WIN32
 constexpr auto SEPARATOR = '\\';
@@ -22,6 +24,8 @@ constexpr auto JSON_INDENT_LEVEL = 4;
 int main(int argc, char *argv[]) {
     auto &constants = hlt::Constants::get_mut();
 
+    torch::Tensor tensor = torch::rand({2, 3});
+    std::cout << tensor << std::endl;
     
     // Set the random seed
     auto seed = static_cast<unsigned int>(time(nullptr));
@@ -182,6 +186,8 @@ int main(int argc, char *argv[]) {
             //results["terminated"][to_string(player_id)] = player.terminated;
         }
     }
+
+
 
     //results["map_width"] = map_width;
     //results["map_height"] = map_height;
