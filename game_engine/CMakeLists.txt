@@ -95,17 +95,17 @@ if(result)
     message(FATAL_ERROR "Build step for dependencies failed: ${result}")
 endif()
 
-add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake EXCLUDE_FROM_ALL)
+#add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake EXCLUDE_FROM_ALL)
 #add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/catch)
 
-include_directories(${EXTERNAL_INSTALL_LOCATION}/zstd/lib ${EXTERNAL_INSTALL_LOCATION}/tclap/include)
-link_directories(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake/lib)
+include_directories(${EXTERNAL_INSTALL_LOCATION}/tclap/include)
+#link_directories(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake/lib)
 
 add_library(halite_core OBJECT ${SOURCE_FILES})
 
 add_executable(halite $<TARGET_OBJECTS:halite_core> main.cpp)
 if(NOT WIN32)
-    add_dependencies(halite VERSION_CHECK libzstd_static)
+    #add_dependencies(halite VERSION_CHECK libzstd_static)
 endif()
 
 file(GLOB_RECURSE SOURCE ${CMAKE_SOURCE_DIR}/test/*.[ch]*)
@@ -120,20 +120,20 @@ else()
     add_executable(halite_test $<TARGET_OBJECTS:halite_core> ${TEST_FILES} ${CMAKE_SOURCE_DIR}/test/TestMain.cpp)
 endif()
 
-add_dependencies(halite_test libzstd_static)
+#add_dependencies(halite_test libzstd_static)
 if(APPLE)
     # No static linkage here - https://stackoverflow.com/questions/5259249/creating-static-mac-os-x-c-build
-    target_link_libraries(halite pthread libzstd_static)
-    target_link_libraries(halite_test pthread libzstd_static)
+    target_link_libraries(halite pthread)
+    target_link_libraries(halite_test pthread)
 elseif(MSVC)
-    target_link_libraries(halite libzstd_static)
-    target_link_libraries(halite_test libzstd_static)
+    #target_link_libraries(halite libzstd_static)
+    #target_link_libraries(halite_test libzstd_static)
 else()
     if(CMAKE_BUILD_TYPE MATCHES Debug AND NOT MINGW)
         # Link dynamically on Linux since AddressSanitizer doesn't work with static linkage
         # But link statically on MinGW, since it doesn't have address sanitizer and keeping MinGW dlls around is a pain
-        target_link_libraries(halite pthread libzstd_static)
-        target_link_libraries(halite_test pthread libzstd_static)
+        target_link_libraries(halite pthread)
+        target_link_libraries(halite_test pthread )
     else()
         # On Linux, make sure to link using the whole-archive option
         # See: https://stackoverflow.com/questions/35116327

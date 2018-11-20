@@ -5,8 +5,6 @@
 #include <iostream>
 #include <string>
 
-#include "zstd.h"
-
 #include "Statistics.hpp"
 #include "Command.hpp"
 #include "GameEvent.hpp"
