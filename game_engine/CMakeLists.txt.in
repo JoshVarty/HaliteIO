@@ -5,15 +5,3 @@ project(deps-download NONE)
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 include(ExternalProject)
-
-ExternalProject_Add(tclap-download
-    URL https://netix.dl.sourceforge.net/project/tclap/tclap-1.2.2.tar.gz
-    URL_HASH SHA256=f5013be7fcaafc69ba0ce2d1710f693f61e9c336b6292ae4f57554f59fde5837
-    PREFIX ${EXTERNAL_INSTALL_LOCATION}
-    SOURCE_DIR ${EXTERNAL_INSTALL_LOCATION}/tclap
-    CMAKE_COMMAND ""
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    UPDATE_COMMAND ""
-    INSTALL_COMMAND ""
-)
