@@ -16,6 +16,7 @@ replays/
 */halite
 *.hlt
 CMakeCache.txt
+*/libtorch/*
 
 # Distribution / packaging
 .Python
