@@ -98,7 +98,7 @@ endif()
 #add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake EXCLUDE_FROM_ALL)
 #add_subdirectory(${EXTERNAL_INSTALL_LOCATION}/catch)
 
-include_directories(${EXTERNAL_INSTALL_LOCATION}/tclap/include)
+#include_directories(${EXTERNAL_INSTALL_LOCATION}/tclap/include)
 #link_directories(${EXTERNAL_INSTALL_LOCATION}/zstd/build/cmake/lib)
 
 add_library(halite_core OBJECT ${SOURCE_FILES})
