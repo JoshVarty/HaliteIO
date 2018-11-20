@@ -108,17 +108,18 @@ int main(int argc, char *argv[]) {
         Logging::set_enabled(false);
     }
 
+    n_players = 2;
     // Read the player bot commands
-    auto bot_commands = command_args.getValue();
-    if (bot_commands.size() > constants.MAX_PLAYERS) {
-        Logging::log("Too many players (max is " + std::to_string(constants.MAX_PLAYERS) + ")", Logging::Level::Error);
-        return 1;
-    } else if (bot_commands.size() > n_players) {
-        n_players = bot_commands.size();
-        if (players_arg.isSet()) {
-            Logging::log("Overriding the specified number of players", Logging::Level::Warning);
-        }
-    }
+    // auto bot_commands = command_args.getValue();
+    // if (bot_commands.size() > constants.MAX_PLAYERS) {
+    //     Logging::log("Too many players (max is " + std::to_string(constants.MAX_PLAYERS) + ")", Logging::Level::Error);
+    //     return 1;
+    // } else if (bot_commands.size() > n_players) {
+    //     n_players = bot_commands.size();
+    //     if (players_arg.isSet()) {
+    //         Logging::log("Overriding the specified number of players", Logging::Level::Warning);
+    //     }
+    // }
 
     hlt::mapgen::MapType type;
     std::istringstream type_stream(map_type_arg.getValue());
@@ -136,8 +137,8 @@ int main(int argc, char *argv[]) {
         map_parameters = snapshot.map_param;
     }
 
-    net::NetworkingConfig networking_config{};
-    networking_config.ignore_timeout = timeout_switch.getValue();
+    // net::NetworkingConfig networking_config{};
+    // networking_config.ignore_timeout = timeout_switch.getValue();
 
     hlt::Map map(map_parameters.width, map_parameters.height);
     hlt::mapgen::Generator::generate(map, map_parameters);
@@ -149,8 +150,8 @@ int main(int argc, char *argv[]) {
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     Logging::log("Map seed is " + std::to_string(map_parameters.seed));
 
-    hlt::Halite game(map, networking_config, game_statistics, replay);
-    game.run_game(bot_commands, snapshot);
+    hlt::Halite game(map, game_statistics, replay);
+    game.run_game(n_players, snapshot);
 
     const auto &overrides = override_args.getValue();
     auto idx = 0;

@@ -16,13 +16,11 @@ namespace hlt {
  * @param replay The game replay to use.
  */
 Halite::Halite(Map &map,
-               const net::NetworkingConfig &networking_config,
                GameStatistics &game_statistics,
                Replay &replay) :
         map(map),
         game_statistics(game_statistics),
         replay(replay),
-        networking(networking_config, *this),
         impl(std::make_unique<HaliteImpl>(*this)),
         rng(replay.map_generator_seed) {}
 
@@ -30,9 +28,9 @@ Halite::Halite(Map &map,
  * Run the game.
  * @param player_commands The list of player commands.
  */
-void Halite::run_game(const std::vector<std::string> &player_commands,
+void Halite::run_game(int n_players,
                       const Snapshot &snapshot) {
-    impl->initialize_game(player_commands, snapshot);
+    impl->initialize_game(n_players, snapshot);
     impl->run_game();
 }
 

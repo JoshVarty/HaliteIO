@@ -10,7 +10,7 @@ namespace hlt {
  * Initialize the game.
  * @param player_commands The list of player commands.
  */
-void HaliteImpl::initialize_game(const std::vector<std::string> &player_commands,
+void HaliteImpl::initialize_game(int n_players,
                                  const Snapshot &snapshot) {
     // Update max turn # by map size (300 @ 32x32 to 500 at 80x80)
     auto &mut_constants = Constants::get_mut();
@@ -23,7 +23,7 @@ void HaliteImpl::initialize_game(const std::vector<std::string> &player_commands
 
     const auto &constants = Constants::get();
     auto &players = game.store.players;
-    assert(game.map.factories.size() >= player_commands.size());
+    //assert(game.map.factories.size() >= player_commands.size());
 
     // Add a 0 frame so we can record beginning-of-game state
     game.replay.full_frames.emplace_back();
@@ -49,9 +49,10 @@ void HaliteImpl::initialize_game(const std::vector<std::string> &player_commands
         }
     }
 
-    for (const auto &command : player_commands) {
+    //for (const auto &command : player_commands) {
+    for (int i = 0; i < n_players; i++) {
         auto &factory = *factory_iterator++;
-        auto player = game.store.player_factory.make(factory, command);
+        auto player = game.store.player_factory.make(factory);
         player.energy = constants.INITIAL_ENERGY;
         game.game_statistics.player_statistics.emplace_back(player.id, game.rng());
         if (snapshot.players.find(player.id) != snapshot.players.end()) {
@@ -104,9 +105,11 @@ void HaliteImpl::run_game() {
     ordered_id_map<Player, std::future<void>> results{};
     bool success = true;
     for (auto &[player_id, player] : game.store.players) {
-        Logging::log("Launching with command " + player.command, Logging::Level::Info, player.id);
+        //Logging::log("Launching with command " + player.command, Logging::Level::Info, player.id);
         try {
-            game.networking.connect_player(player);
+            
+            //game.networking.connect_player(player);
+
         } catch (const BotError &e) {
             success = false;
             kill_player(player_id);
@@ -121,11 +124,11 @@ void HaliteImpl::run_game() {
     }
 
     for (auto &[player_id, player] : game.store.players) {
-        Logging::log("Initializing player", Logging::Level::Info, player_id);
-        results[player_id] = std::async(std::launch::async,
-                                        [&networking = game.networking, &player = player] {
-                                            networking.initialize_player(player);
-                                        });
+        // Logging::log("Initializing player", Logging::Level::Info, player_id);
+        // results[player_id] = std::async(std::launch::async,
+        //                                 [&networking = game.networking, &player = player] {
+        //                                     networking.initialize_player(player);
+        //                                 });
     }
     for (auto &[player_id, result] : results) {
         try {
@@ -178,7 +181,7 @@ void HaliteImpl::run_game() {
     for (const auto &[player_id, player] : game.store.players) {
         game.replay.players.find(player_id)->second.terminated = player.terminated;
         if (!player.terminated) {
-            game.networking.kill_player(player);
+            //game.networking.kill_player(player);
         }
     }
 }
@@ -190,12 +193,12 @@ void HaliteImpl::process_turn() {
     ordered_id_map<Player, Commands> commands{};
     id_map<Player, std::future<Commands>> results{};
     for (auto &[player_id, player] : game.store.players) {
-        if (!player.terminated) {
-            results[player_id] = std::async(std::launch::async,
-                                            [&networking = game.networking, &player = player] {
-                                                return networking.handle_frame(player);
-                                            });
-        }
+        // if (!player.terminated) {
+        //     results[player_id] = std::async(std::launch::async,
+        //                                     [&networking = game.networking, &player = player] {
+        //                                         return networking.handle_frame(player);
+        //                                     });
+        // }
     }
     for (auto &[player_id, result] : results) {
         try {
@@ -577,7 +580,7 @@ void HaliteImpl::kill_player(const Player::id_type &player_id) {
     Logging::log("Killing player", Logging::Level::Warning, player_id);
     auto &player = game.store.get_player(player_id);
     player.terminated = true;
-    game.networking.kill_player(player);
+    //game.networking.kill_player(player);
 
     auto &entities = player.entities;
     for (auto entity_iterator = entities.begin();

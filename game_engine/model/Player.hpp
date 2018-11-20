@@ -22,7 +22,7 @@ struct Player final : public Enumerated<Player> {
     energy_type energy{};                /**< The amount of energy stockpiled by the player. */
     energy_type factory_energy_deposited{}; /**< The amount of energy deposited at the factory so far. */
     energy_type total_energy_deposited{}; /**< The amount of energy collected so far. */
-    const std::string command;           /**< The bot command for the player. */
+    //const std::string command;           /**< The bot command for the player. */
     id_map<Entity, Location> entities{}; /**< Mapping from entity to location. */
     bool terminated;                     /**< Whether the player was kicked out of the game. */
     bool can_play = true;                /**< Whether the player has sufficient resources remaining. */
@@ -75,8 +75,8 @@ private:
      * @param id The player ID.
      * @param command The player bot command.
      */
-    Player(Player::id_type id, Location factory, std::string command) :
-            Enumerated(id), factory(factory), command(std::move(command)), terminated(false) {}
+    Player(Player::id_type id, Location factory) :
+            Enumerated(id), factory(factory), terminated(false) {}
 
 };
 

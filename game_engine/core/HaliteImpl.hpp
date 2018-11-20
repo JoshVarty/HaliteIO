@@ -22,7 +22,7 @@ class HaliteImpl final {
      * Initialize the game.
      * @param player_commands The list of player commands.
      */
-    void initialize_game(const std::vector<std::string> &player_commands,
+    void initialize_game(int n_players,
                          const Snapshot &snapshot);
 
     /** Run the game. */
