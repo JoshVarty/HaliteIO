@@ -17,22 +17,22 @@
 
 struct Model : torch::nn::Module {
   Model()
-      : conv1(torch::nn::Conv2dOptions(1, 10, /*kernel_size=*/5)),
-        conv2(torch::nn::Conv2dOptions(10, 20, /*kernel_size=*/5)),
-        fc1(320, 50),
-        fc2(50, 10) {
+      : conv1(torch::nn::Conv2dOptions(12, 32, /*kernel_size=*/3)),
+        conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
+        fc1(32 * 60 * 60, 256),
+        fc2(256, 6) {
     register_module("conv1", conv1);
     register_module("conv2", conv2);
-    register_module("conv2_drop", conv2_drop);
     register_module("fc1", fc1);
     register_module("fc2", fc2);
   }
 
   torch::Tensor forward(torch::Tensor x) {
-    x = torch::relu(torch::max_pool2d(conv1->forward(x), 2));
-    x = torch::relu(
-        torch::max_pool2d(conv2_drop->forward(conv2->forward(x)), 2));
-    x = x.view({-1, 320});
+
+    x = conv1->forward(x);
+    x = torch::relu(x);
+    x = torch::relu(conv2->forward(x));
+    x = x.view({-1, 32 * 60 * 60});
     x = torch::relu(fc1->forward(x));
     x = torch::dropout(x, /*p=*/0.5, /*training=*/is_training());
     x = fc2->forward(x);
@@ -41,7 +41,6 @@ struct Model : torch::nn::Module {
 
   torch::nn::Conv2d conv1;
   torch::nn::Conv2d conv2;
-  torch::nn::FeatureDropout conv2_drop;
   torch::nn::Linear fc1;
   torch::nn::Linear fc2;
 };
@@ -252,13 +251,9 @@ std::vector<rollout_item> generate_rollout() {
                 }
 
                 //TODO: Ask the neural network what to do now?
-                auto tensor = torch::from_blob(frames.state, {12,64,64});
-                //std::cout << tensor << std::endl;
-
-                auto josh = tensor.sizes();
-                for(auto size : josh) {
-                    std::cout << size << std::endl;
-                }
+                auto state = torch::from_blob(frames.state, {12,64,64});
+                state = state.unsqueeze(0);
+                auto modelOutput = myModel.forward(state);
 
                 std::string command = "";
 
@@ -306,7 +301,10 @@ std::vector<rollout_item> generate_rollout() {
 }
 
 public:
-    Agent() { }
+
+    Model myModel;
+    Agent() { 
+    }
 
     double step(){
         auto rollout = generate_rollout();
