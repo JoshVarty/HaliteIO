@@ -13,11 +13,59 @@
 #include <torch/torch.h>
 
 
+class Agent {
+private:
+
+
+public:
+    Agent() { }
+
+    double step(){
+        return 0.0;
+    }
+};
+
+
+
+void ppo(Agent myAgent, uint numEpisodes) {
+    std::vector<double> allScores;
+    std::deque<double> lastHundredScores;
+
+    for (uint i = 1; i < numEpisodes + 1; i++){
+
+        double current_score = myAgent.step();
+        allScores.push_back(current_score);
+        //Keep track of the last 100 scores
+        lastHundredScores.push_back(current_score);
+        if(lastHundredScores.size() > 100) {
+            lastHundredScores.pop_front();
+        }
+
+        double mean = 0;
+        for (uint j = 0; j < lastHundredScores.size(); j++){
+            mean += 0.01 * lastHundredScores[j];
+        }
+
+        if (i % 100 == 0) {
+            //Every 100 episodes, display the mean reward
+            std::cout << "Mean at step: " << i << ": " << mean;
+        }
+
+        //TODO: If network improves, save it.
+    }
+}
+
+
+
 int main(int argc, char *argv[]) {
     auto &constants = hlt::Constants::get_mut();
 
     torch::Tensor tensor = torch::rand({2, 3});
     std::cout << tensor << std::endl;
+
+    Agent agent;
+    ppo(agent, 500);
+
     
     // Set the random seed
     auto seed = static_cast<unsigned int>(time(nullptr));
