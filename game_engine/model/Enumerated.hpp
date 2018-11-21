@@ -27,7 +27,9 @@ struct processed_rollout_item {
 
 typedef std::pair<long, std::string> AgentCommand;
 
-typedef std::vector<std::vector<float>> Frame;
+struct frame {
+    float state[12][64][64];
+};
 
 /** The internal ID type. */
 using id_value_type = long;

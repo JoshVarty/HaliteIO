@@ -14,10 +14,43 @@
 #include <torch/torch.h>
 
 
+
+struct Model : torch::nn::Module {
+  Model()
+      : conv1(torch::nn::Conv2dOptions(1, 10, /*kernel_size=*/5)),
+        conv2(torch::nn::Conv2dOptions(10, 20, /*kernel_size=*/5)),
+        fc1(320, 50),
+        fc2(50, 10) {
+    register_module("conv1", conv1);
+    register_module("conv2", conv2);
+    register_module("conv2_drop", conv2_drop);
+    register_module("fc1", fc1);
+    register_module("fc2", fc2);
+  }
+
+  torch::Tensor forward(torch::Tensor x) {
+    x = torch::relu(torch::max_pool2d(conv1->forward(x), 2));
+    x = torch::relu(
+        torch::max_pool2d(conv2_drop->forward(conv2->forward(x)), 2));
+    x = x.view({-1, 320});
+    x = torch::relu(fc1->forward(x));
+    x = torch::dropout(x, /*p=*/0.5, /*training=*/is_training());
+    x = fc2->forward(x);
+    return torch::log_softmax(x, /*dim=*/1);
+  }
+
+  torch::nn::Conv2d conv1;
+  torch::nn::Conv2d conv2;
+  torch::nn::FeatureDropout conv2_drop;
+  torch::nn::Linear fc1;
+  torch::nn::Linear fc2;
+};
+
+
 class Agent {
 private:
 
-std::vector<Frame> parseGridIntoSlices(long playerId, hlt::Halite &game) {
+frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
     int no_of_cols = 64;
     int no_of_rows = 64;
@@ -49,28 +82,20 @@ std::vector<Frame> parseGridIntoSlices(long playerId, hlt::Halite &game) {
     // current_unit.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
 
     //Board info
-    Frame halite_locations;
-    Frame steps_remaining;
+    frame myFrame;
+    auto frameData = myFrame.state;
+    auto halite_locations = frameData[0];
+    auto steps_remaining = frameData[1];
     //My global info
-    Frame my_ships;
-    Frame my_ships_halite;
-    Frame my_dropoffs;
-    Frame my_score;
+    auto my_ships = frameData[2];
+    auto my_ships_halite = frameData[3];
+    auto my_dropoffs = frameData[4];
+    auto my_score = frameData[5];
     //Enemy global info
-    Frame enemy_ships;
-    Frame enemy_ships_halite;
-    Frame enemy_dropoffs;
-    std::vector<std::vector<float>> enemy_score;
-
-    float initial_value = 0.0;
-    halite_locations.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    steps_remaining.resize(no_of_rows, std::vector<float>(no_of_cols, totalSteps - game.turn_number));
-    my_ships.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    my_ships_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    my_dropoffs.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    enemy_ships.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    enemy_ships_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    enemy_dropoffs.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    auto enemy_ships = frameData[6];
+    auto enemy_ships_halite = frameData[7];
+    auto enemy_dropoffs = frameData[8];
+    auto enemy_score = frameData[9];
 
     int cellY = 0;
     for(auto row : game.map.grid) {
@@ -129,16 +154,24 @@ std::vector<Frame> parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
         // Player score
         auto score = player.energy;
+        auto floatScore = (float)score;
         if(player.id.value == playerId) {
-            my_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
+            for(int i = 0; i < 64; i++) {
+                for(int j = 0; j < 64; j++){
+                    my_score[i][j] = floatScore;
+                }
+            }
         }
         else {
-            enemy_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
+            for(int i = 0; i < 64; i++) {
+                for(int j = 0; j < 64; j++){
+                    enemy_score[i][j] = floatScore;
+                }
+            }
         }
     }
 
-    std::vector<Frame> frame { halite_locations, steps_remaining, my_ships, my_ships_halite, my_dropoffs, my_score, enemy_ships, enemy_ships_halite, enemy_dropoffs, enemy_score};
-    return frame;
+    return myFrame;
 }
 
 
@@ -155,9 +188,6 @@ std::vector<rollout_item> generate_rollout() {
     hlt::mapgen::MapParameters map_parameters{type, seed, map_width, map_height, numPlayers};
     hlt::Map map(map_width, map_height);
     hlt::mapgen::Generator::generate(map, map_parameters);
-    std::string replay_directory = "replays/";
-    constexpr auto SEPARATOR = '/';
-    if (replay_directory.back() != SEPARATOR) replay_directory.push_back(SEPARATOR);
     hlt::GameStatistics game_statistics;
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
     hlt::Halite game(map, game_statistics, replay);    
@@ -189,7 +219,6 @@ std::vector<rollout_item> generate_rollout() {
         auto &players = game.store.players;
         int offset = 0;
         for (auto playerPair : players) {
-
             auto frames = parseGridIntoSlices(0, game);
 
             auto id = playerPair.first.value;
@@ -203,19 +232,33 @@ std::vector<rollout_item> generate_rollout() {
                 auto entity = game.store.get_entity(entityId);
                 int no_of_rows = 64;
                 int no_of_cols = 64;
-                float initial_value = 0.0;
 
-                Frame entityLocation; 
-                entityLocation.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-                entityLocation[offset + location.y][offset + location.x];
-                
-                Frame entityHalite; 
-                entityHalite.resize(no_of_rows, std::vector<float>(no_of_cols, entity.energy));
+                //Zero out all cells except for where our current unit is
+                auto entityLocationFrame = frames.state[10];
+                for(int i = 0; i < 64; i++) {
+                    for(int j = 0; j < 64; j++) {
+                        entityLocationFrame[i][j] = 0;
+                    }
+                }
+                entityLocationFrame[offset + location.y][offset + location.x];
 
-                frames.push_back(entityLocation);
-                frames.push_back(entityHalite);
+                //Set entire frame to the score of the current unit
+                auto entityEnergyFrame = frames.state[11];
+                float energy = entity.energy;
+                for(int i = 0; i < 64; i++) {
+                    for(int j = 0; j < 64; j++) {
+                        entityLocationFrame[i][j] = energy;
+                    }
+                }
 
                 //TODO: Ask the neural network what to do now?
+                auto tensor = torch::from_blob(frames.state, {12,64,64});
+                //std::cout << tensor << std::endl;
+
+                auto josh = tensor.sizes();
+                for(auto size : josh) {
+                    std::cout << size << std::endl;
+                }
 
                 std::string command = "";
 
@@ -266,6 +309,8 @@ public:
     Agent() { }
 
     double step(){
+        auto rollout = generate_rollout();
+        //auto processed_rollout = process_rollout(rollout);
         return 0.0;
     }
 };
@@ -311,7 +356,6 @@ int main(int argc, char *argv[]) {
     Agent agent;
     ppo(agent, 500);
 
-    
     // Set the random seed
     auto seed = static_cast<unsigned int>(time(nullptr));
 
