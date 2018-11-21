@@ -10,8 +10,7 @@ namespace hlt {
  * Initialize the game.
  * @param player_commands The list of player commands.
  */
-void HaliteImpl::initialize_game(int n_players,
-                                 const Snapshot &snapshot) {
+void HaliteImpl::initialize_game(int n_players) {
     // Update max turn # by map size (300 @ 32x32 to 500 at 80x80)
     auto &mut_constants = Constants::get_mut();
     auto turns = mut_constants.MIN_TURNS;
@@ -31,18 +30,6 @@ void HaliteImpl::initialize_game(int n_players,
 
     auto factory_iterator = game.map.factories.begin();
 
-    // Load the map from the snapshot
-    if (!snapshot.map.empty()) {
-        assert(snapshot.map.size() == static_cast<decltype(snapshot.map)::size_type>(game.map.width * game.map.height));
-
-        for (dimension_type row = 0; row < game.map.height; row++) {
-            for (dimension_type col = 0; col < game.map.width; col++) {
-                game.map.at(col, row).energy = snapshot.map.at(static_cast<size_t>(row * game.map.width + col));
-                changed_cells.emplace(row, col);
-            }
-        }
-    }
-
     for (dimension_type row = 0; row < game.map.height; row++) {
         for (dimension_type col = 0; col < game.map.width; col++) {
             game.store.map_total_energy += game.map.at(col, row).energy;
@@ -55,31 +42,6 @@ void HaliteImpl::initialize_game(int n_players,
         auto player = game.store.player_factory.make(factory);
         player.energy = constants.INITIAL_ENERGY;
         game.game_statistics.player_statistics.emplace_back(player.id, game.rng());
-        if (snapshot.players.find(player.id) != snapshot.players.end()) {
-            const auto &player_snapshot = snapshot.players.at(player.id);
-            player.factory = player_snapshot.factory;
-            player.energy = player_snapshot.energy;
-
-            for (const auto &[_, dropoff_location] : player_snapshot.dropoffs) {
-                auto &cell = game.map.at(dropoff_location);
-                cell.owner = player.id;
-                player.dropoffs.emplace_back(game.store.new_dropoff(dropoff_location));
-                game.replay.full_frames.back().events.push_back(
-                        std::make_unique<ConstructionEvent>(
-                                dropoff_location, player.id, Entity::id_type{0}));
-                changed_cells.insert(dropoff_location);
-            }
-
-            for (const auto &entity : player_snapshot.entities) {
-                auto &cell = game.map.at(entity.location);
-                const auto &new_entity = game.store.new_entity(entity.energy, player.id);
-                cell.entity = new_entity.id;
-                player.add_entity(new_entity.id, entity.location);
-                game.replay.full_frames.back().events.push_back(
-                        std::make_unique<SpawnEvent>(
-                                entity.location, entity.energy, player.id, cell.entity));
-            }
-        }
         players.emplace(player.id, player);
     }
     game.replay.game_statistics = game.game_statistics;
@@ -156,7 +118,7 @@ void HaliteImpl::run_game() {
         update_inspiration();
         game.replay.full_frames.back().add_entities(game.store);
 
-        process_turn();
+        //process_turn();
 
         // Add end of frame state.
         game.replay.full_frames.back().add_end_state(game.store);
@@ -186,28 +148,76 @@ void HaliteImpl::run_game() {
     }
 }
 
+void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &command) {
+    // Read one character corresponding to the type, and dispatch the remainder based on its value.
+    auto entityId = agentCommand.first;
+    auto agentCommandText = agentCommand.second;
+
+    char command_type;
+    if (agentCommandText == "N" || agentCommandText == "E" || agentCommandText == "S" || agentCommandText == "W" || agentCommandText == "stay") {
+        Entity::id_type entity(agentCommand.first);
+        Direction direction;
+
+        if (agentCommandText == "N"){
+            direction = Direction::North;
+        }
+        else if (agentCommandText == "E"){
+            direction = Direction::East;
+        }
+        else if (agentCommandText == "S"){
+            direction = Direction::South;
+        }
+        else if (agentCommandText == "W"){
+            direction = Direction::West;
+        }
+        else if (agentCommandText == "stay"){
+            direction = Direction::Still;
+        }
+        //istream >> entity >> direction;
+        command = std::make_unique<MoveCommand>(entity, direction);
+    }
+    else if (agentCommandText == "spawn") {
+        command = std::make_unique<SpawnCommand>();
+    }
+    else if (agentCommandText == "construct") {
+        Entity::id_type entity;
+        //istream >> entity;
+        command = std::make_unique<ConstructCommand>(entity);
+    }
+}
+
 /** Retrieve and process commands, and update the game state for the current turn. */
-void HaliteImpl::process_turn() {
+void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawCommands) {
     // Retrieve all commands
+    //TODO: convert from raw commands to Commands
     using Commands = std::vector<std::unique_ptr<Command>>;
     ordered_id_map<Player, Commands> commands{};
-    id_map<Player, std::future<Commands>> results{};
-    for (auto &[player_id, player] : game.store.players) {
-        // if (!player.terminated) {
-        //     results[player_id] = std::async(std::launch::async,
-        //                                     [&networking = game.networking, &player = player] {
-        //                                         return networking.handle_frame(player);
-        //                                     });
-        // }
-    }
-    for (auto &[player_id, result] : results) {
-        try {
-            commands[player_id] = result.get();
-        } catch (const BotError &e) {
-            kill_player(player_id);
-            commands.erase(player_id);
+
+    auto &players = game.store.players;
+
+    for(uint i = 0; i < rawCommands.size(); i++) {
+        auto playerRawCommands = rawCommands[i];
+
+        for(auto playerPair: players){
+            //Find the player who owns these commands. This is ugly I know.
+            auto playerId = playerPair.first.value;
+            auto player = playerPair.second;
+            if(playerId == i) {
+
+                Commands currentCommands;
+
+                for (auto rawCommand : playerRawCommands) {
+
+                    std::unique_ptr<Command> command;
+                    parse(rawCommand, command);
+                    currentCommands.push_back(std::move(command));
+                }
+
+                commands[playerPair.first] = std::move(currentCommands);
+            }
         }
     }
+
 
     // Process valid player commands, removing players if they submit invalid ones.
     std::unordered_set<Entity::id_type> changed_entities;

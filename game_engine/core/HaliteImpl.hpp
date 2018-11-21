@@ -22,8 +22,7 @@ class HaliteImpl final {
      * Initialize the game.
      * @param player_commands The list of player commands.
      */
-    void initialize_game(int n_players,
-                         const Snapshot &snapshot);
+    void initialize_game(int n_players);
 
     /** Run the game. */
     void run_game();
@@ -70,8 +69,10 @@ class HaliteImpl final {
     /** Update the inspiration flag on entities based on the current game state. */
     void update_inspiration();
 
+    void parse(AgentCommand agentCommand, std::unique_ptr<Command> &command);
+
     /** Retrieve and process commands, and update the game state for the current turn. */
-    void process_turn();
+    void process_turn(std::map<long, std::vector<AgentCommand>> rawCommands);
 
     /** Remove a player from the game. */
     void kill_player(const Player::id_type &player_id);

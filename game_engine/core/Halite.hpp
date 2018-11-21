@@ -22,7 +22,6 @@ class Halite final {
 
     /** External game state. */
     GameStatistics &game_statistics;  /**< The statistics of the game. */
-    Replay &replay;                   /**< Replay instance to collect info for visualizer. */
 
     /** Friend classes have full access to game state. */
 
@@ -33,6 +32,7 @@ class Halite final {
 
 public:
     unsigned long turn_number{};      /**< The turn number. */
+    Replay &replay;                   /**< Replay instance to collect info for visualizer. */
     PlayerLogs logs;                  /**< The player logs. */
     Store store;                      /**< The entity store. */
     Map &map;                         /**< The game map. */
@@ -62,6 +62,20 @@ public:
 
     /** Default destructor is defined where HaliteImpl is complete. */
     ~Halite();
+
+    void initialize_game(int numPlayers);
+
+    void update_inspiration();
+    
+    /** Retrieve and process commands, and update the game state for the current turn. */
+    void process_turn(std::map<long, std::vector<AgentCommand>> rawCommands);
+    
+    bool game_ended();
+    
+    void rank_players();
+    
+    void update_player_stats();
+
 };
 
 }

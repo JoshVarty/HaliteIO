@@ -142,6 +142,126 @@ std::vector<Frame> parseGridIntoSlices(long playerId, hlt::Halite &game) {
 }
 
 
+std::vector<rollout_item> generate_rollout() {
+    std::vector<rollout_item> rollout;
+    // //TODO: Set up list of episode rewards
+
+    //Reset environment for new game
+    int map_width = 64;
+    int map_height = 64;
+    int numPlayers = 2;
+    hlt::mapgen::MapType type = hlt::mapgen::MapType::Fractal;
+    auto seed = static_cast<unsigned int>(time(nullptr));
+    hlt::mapgen::MapParameters map_parameters{type, seed, map_width, map_height, numPlayers};
+    hlt::Map map(map_width, map_height);
+    hlt::mapgen::Generator::generate(map, map_parameters);
+    std::string replay_directory = "replays/";
+    constexpr auto SEPARATOR = '/';
+    if (replay_directory.back() != SEPARATOR) replay_directory.push_back(SEPARATOR);
+    hlt::GameStatistics game_statistics;
+    hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
+    hlt::Halite game(map, game_statistics, replay);    
+
+    game.initialize_game(numPlayers);
+
+    const auto &constants = hlt::Constants::get();
+    game.replay.players.insert(game.store.players.begin(), game.store.players.end());
+
+    for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
+
+        Logging::set_turn_number(game.turn_number);
+        game.logs.set_turn_number(game.turn_number);
+        Logging::log([turn_number = game.turn_number]() {
+            return "Starting turn " + std::to_string(turn_number);
+        }, Logging::Level::Debug);
+        
+        // Create new turn struct for replay file, to be filled by further turn actions
+        game.replay.full_frames.emplace_back();
+
+        // Add state of entities at start of turn.
+        // First, update inspiration flags, so they can be used for
+        // movement/mining and so they are part of the replay.
+        game.update_inspiration();
+        game.replay.full_frames.back().add_entities(game.store);
+
+        std::map<long, std::vector<AgentCommand>> commands;
+
+        auto &players = game.store.players;
+        int offset = 0;
+        for (auto playerPair : players) {
+
+            auto frames = parseGridIntoSlices(0, game);
+
+            auto id = playerPair.first.value;
+            std::vector<AgentCommand> playerCommands;
+            auto player = playerPair.second;
+
+            for(auto entityPair : player.entities) {
+                auto entityId = entityPair.first;
+                auto location = entityPair.second;
+
+                auto entity = game.store.get_entity(entityId);
+                int no_of_rows = 64;
+                int no_of_cols = 64;
+                float initial_value = 0.0;
+
+                Frame entityLocation; 
+                entityLocation.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+                entityLocation[offset + location.y][offset + location.x];
+                
+                Frame entityHalite; 
+                entityHalite.resize(no_of_rows, std::vector<float>(no_of_cols, entity.energy));
+
+                frames.push_back(entityLocation);
+                frames.push_back(entityHalite);
+
+                //TODO: Ask the neural network what to do now?
+
+                std::string command = "";
+
+                if(game.map.grid[location.y][location.x].energy >= 100 && !entity.energy >= 1000) {
+                    //Mine (stay still)   
+                    command = "stay";
+                }
+                else {
+                    std::vector<std::string> moves {"N", "E", "S", "W"};
+                    //Otherwise, take a random step
+                    std::mt19937 rng;
+                    rng.seed(std::random_device()());
+                    std::uniform_int_distribution<std::mt19937::result_type> dist3(0,3); // distribution in range [0, 3]
+                    auto randomIndex = dist3(rng);
+                    command = moves[randomIndex];
+                }
+                playerCommands.push_back(AgentCommand(entityId.value, command));
+            }
+
+            // auto energy = player.energy;
+            //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
+            auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
+            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1){
+                long factoryId = -1;
+                std::string command = "spawn";
+                playerCommands.push_back(AgentCommand(factoryId, command));
+            }
+
+            commands[id] = playerCommands;
+        }
+
+        game.process_turn(commands);
+
+        // Add end of frame state.
+        game.replay.full_frames.back().add_end_state(game.store);
+
+        if (game.game_ended()) {
+            break;
+        }
+    }
+
+    //GAME IS OVER
+
+    return rollout;
+}
+
 public:
     Agent() { }
 

@@ -30,8 +30,33 @@ Halite::Halite(Map &map,
  */
 void Halite::run_game(int n_players,
                       const Snapshot &snapshot) {
-    impl->initialize_game(n_players, snapshot);
-    impl->run_game();
+    // impl->initialize_game(n_players, snapshot);
+    // impl->run_game();
+}
+
+void Halite::initialize_game(int numPlayers){
+    impl->initialize_game(numPlayers);
+}
+    
+void Halite::update_inspiration() {
+    impl->update_inspiration(); 
+}
+
+/** Retrieve and process commands, and update the game state for the current turn. */
+void Halite::process_turn(std::map<long, std::vector<AgentCommand>> rawCommands){
+    impl->process_turn(rawCommands);
+}
+
+bool Halite::game_ended() {
+    return impl->game_ended();
+}
+
+void Halite::update_player_stats(){
+    impl->update_player_stats();
+}
+
+void Halite::rank_players(){
+    impl->rank_players();
 }
 
 std::string Halite::to_snapshot(const hlt::mapgen::MapParameters &map_parameters) {
