@@ -5,7 +5,12 @@
 #include <unordered_map>
 #include <utility>
 #include <map>
+#include <vector>
 
+
+typedef std::pair<long, std::string> AgentCommand;
+
+typedef std::vector<std::vector<float>> Frame;
 
 /** The internal ID type. */
 using id_value_type = long;

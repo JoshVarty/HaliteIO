@@ -9,12 +9,137 @@
 #include "Logging.hpp"
 #include "Replay.hpp"
 #include "Snapshot.hpp"
+#include "Enumerated.hpp"
 
 #include <torch/torch.h>
 
 
 class Agent {
 private:
+
+std::vector<Frame> parseGridIntoSlices(long playerId, hlt::Halite &game) {
+
+    int no_of_cols = 64;
+    int no_of_rows = 64;
+    int offset = 0;
+
+    int numRows = game.map.grid.size();
+    int totalSteps = 0;
+    if (numRows == 64) {
+        totalSteps = 501;
+    } 
+    else if (numRows == 56) {
+        totalSteps = 476;
+    }
+    else if (numRows == 48) {
+        totalSteps = 451;
+    }
+    else if (numRows == 40) {
+        totalSteps = 426;
+    }
+    else {
+        totalSteps = 401;
+    }
+
+    //TODO:
+    // //My current unit info
+    // std::vector<std::vector<float>> unit_halite;
+    // std::vector<std::vector<float>> current_unit;
+    // unit_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    // current_unit.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+
+    //Board info
+    Frame halite_locations;
+    Frame steps_remaining;
+    //My global info
+    Frame my_ships;
+    Frame my_ships_halite;
+    Frame my_dropoffs;
+    Frame my_score;
+    //Enemy global info
+    Frame enemy_ships;
+    Frame enemy_ships_halite;
+    Frame enemy_dropoffs;
+    std::vector<std::vector<float>> enemy_score;
+
+    float initial_value = 0.0;
+    halite_locations.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    steps_remaining.resize(no_of_rows, std::vector<float>(no_of_cols, totalSteps - game.turn_number));
+    my_ships.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    my_ships_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    my_dropoffs.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    enemy_ships.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    enemy_ships_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+    enemy_dropoffs.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
+
+    int cellY = 0;
+    for(auto row : game.map.grid) {
+        int cellX = 0;
+        for (auto cell: row) {
+            auto x = offset + cellX;
+            auto y = offset + cellY;
+
+            //auto halite = cell.energy.value;
+            halite_locations[y][x] = cell.energy;
+
+            if(cell.entity.value != -1) {
+                //There is a ship here
+                auto entity = game.store.get_entity(cell.entity);
+
+                if(entity.owner.value == playerId) {
+                    my_ships_halite[y][x] = entity.energy;
+                    my_ships[y][x] = 1;
+                }
+                else {
+                    enemy_ships_halite[y][x] = entity.energy;
+                    enemy_ships[y][x] = 2;
+                }
+            }
+            
+            cellX = cellX + 1;
+        }
+        cellY = cellY + 1;
+    }
+
+    for(auto playerPair : game.store.players) {
+
+        auto player = playerPair.second;
+        auto spawn = player.factory;
+        auto x = offset + spawn.x;
+        auto y = offset + spawn.y;
+
+        if(player.id.value == playerId) {
+            //We mark our spawn as a 'dropoff' because it can also be used as one
+            my_dropoffs[y][x] = 1;
+        } 
+        else {
+            //We mark the enemy spawn as a 'dropoff' because it can also be used as one
+            enemy_dropoffs[y][x] = 2;
+        }
+
+        for(auto dropoff : player.dropoffs) {
+            if(player.id.value == playerId) {
+                my_dropoffs[y][x] = 1;
+            }
+            else {
+                //We mark the enemy spawn as a 'dropoff' because it can also be used as one
+                enemy_dropoffs[y][x] = 2;
+            }
+        }
+
+        // Player score
+        auto score = player.energy;
+        if(player.id.value == playerId) {
+            my_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
+        }
+        else {
+            enemy_score.resize(no_of_rows, std::vector<float>(no_of_cols, score));
+        }
+    }
+
+    std::vector<Frame> frame { halite_locations, steps_remaining, my_ships, my_ships_halite, my_dropoffs, my_score, enemy_ships, enemy_ships_halite, enemy_dropoffs, enemy_score};
+    return frame;
+}
 
 
 public:

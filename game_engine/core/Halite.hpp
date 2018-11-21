@@ -19,11 +19,8 @@ struct Snapshot;
 /** Halite game interface, exposing the top level of the game. */
 class Halite final {
     /** Transient game state. */
-    unsigned long turn_number{};      /**< The turn number. */
-    Store store;                      /**< The entity store. */
 
     /** External game state. */
-    Map &map;                         /**< The game map. */
     GameStatistics &game_statistics;  /**< The statistics of the game. */
     Replay &replay;                   /**< Replay instance to collect info for visualizer. */
 
@@ -35,7 +32,10 @@ class Halite final {
     std::mt19937 rng;                 /** The random number generator used for tie breaking. */
 
 public:
+    unsigned long turn_number{};      /**< The turn number. */
     PlayerLogs logs;                  /**< The player logs. */
+    Store store;                      /**< The entity store. */
+    Map &map;                         /**< The game map. */
 
     /**
      * Constructor for the main game.

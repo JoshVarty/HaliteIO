@@ -33,7 +33,6 @@ class Store {
     friend class net::Networking;
     friend struct Turn;
 
-    ordered_id_map<Player, Player> players;  /**< Map from player ID to player. */
     id_map<Entity, Entity> entities;         /**< Map from entity ID to entity. */
 
     Factory<Player> player_factory;   /**< The player factory. */
@@ -44,6 +43,7 @@ class Store {
 
 public:
     unsigned long long map_total_energy{}; /**< The total energy remaining on the map. */
+    ordered_id_map<Player, Player> players;  /**< Map from player ID to player. */
 
     /**
      * Get a player by ID.
