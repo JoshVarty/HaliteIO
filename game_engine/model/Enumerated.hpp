@@ -28,7 +28,21 @@ struct processed_rollout_item {
 typedef std::pair<long, std::string> AgentCommand;
 
 struct frame {
-    float state[12][64][64];
+public:
+    float state[12][64][64] = {};
+
+    void debug_print() {
+        for(int i = 0; i < 12; i++){
+            std::cout << std::endl << std::endl << "FRAME: " << i << std::endl;
+
+            for(int j = 0; j < 64; j++) {
+                std::cout << std::endl << j << ": \t";
+                for(int k = 0; k < 64; k++){
+                    std::cout << state[i][j][k] << " ";
+                }
+            }
+        }
+    }
 };
 
 /** The internal ID type. */

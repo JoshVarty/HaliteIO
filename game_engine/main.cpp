@@ -102,6 +102,8 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
     //Board info
     frame myFrame;
     auto frameData = myFrame.state;
+
+    myFrame.debug_print();
     auto halite_locations = frameData[0];
     auto steps_remaining = frameData[1];
     //My global info
@@ -271,16 +273,7 @@ std::vector<rollout_item> generate_rollout() {
 
                 std::cout << frames.state << std::endl;
 
-                for(int i = 0; i < 12; i++){
-                    std::cout << std::endl << std::endl << "FRAME: " << i << std::endl;
-
-                    for(int j = 0; j < 64; j++) {
-                        std::cout << std::endl << j << ": \t";
-                        for(int k = 0; k < 64; k++){
-                            std::cout << frames.state[i][j][k] << " ";
-                        }
-                    }
-                }
+               
 
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
