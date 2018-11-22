@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <math.h>
 
 #include "Constants.hpp"
 #include "Generator.hpp"
@@ -14,37 +15,55 @@
 #include <torch/torch.h>
 
 
-
-struct Model : torch::nn::Module {
-  Model()
-      : conv1(torch::nn::Conv2dOptions(12, 32, /*kernel_size=*/3)),
-        conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
-        fc1(32 * 60 * 60, 256),
-        fc2(256, 6) {
-    register_module("conv1", conv1);
-    register_module("conv2", conv2);
-    register_module("fc1", fc1);
-    register_module("fc2", fc2);
-  }
-
-  torch::Tensor forward(torch::Tensor x) {
-
-    x = conv1->forward(x);
-    x = torch::relu(x);
-    x = torch::relu(conv2->forward(x));
-    x = x.view({-1, 32 * 60 * 60});
-    x = torch::relu(fc1->forward(x));
-    x = torch::dropout(x, /*p=*/0.5, /*training=*/is_training());
-    x = fc2->forward(x);
-    return torch::log_softmax(x, /*dim=*/1);
-  }
-
-  torch::nn::Conv2d conv1;
-  torch::nn::Conv2d conv2;
-  torch::nn::Linear fc1;
-  torch::nn::Linear fc2;
+struct model_output {
+    float action;
+    float log_prob;
+    float value;
 };
 
+struct ActorCriticNetwork : torch::nn::Module {
+public:
+    ActorCriticNetwork() 
+    :   conv1(torch::nn::Conv2dOptions(12, 32, /*kernel_size=*/3)),
+        conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
+         fc1(32 * 60 * 60, 256),
+         fc2(256, 6),           //Actor head
+         fc3(256, 1)           //Critic head
+    {
+        register_module("conv1", conv1);
+        register_module("conv2", conv2);
+        register_module("fc1", fc1);
+        register_module("fc2", fc2);
+        register_module("fc3", fc3);
+    }
+
+    torch::Tensor forward(torch::Tensor x) {
+        std::cout <<  "X: " << x << std::endl;
+        x = conv1->forward(x);
+        x = torch::relu(x);
+        x = torch::relu(conv2->forward(x));
+        x = x.view({-1, 32 * 60 * 60});
+        x = torch::relu(fc1->forward(x));
+
+        auto a = fc2->forward(x);
+        std::cout << a << std::endl;
+        auto action_probabilities = torch::softmax(a, /*dim=*/1);
+        std::cout << action_probabilities << std::endl;
+        auto critic_output = fc3->forward(x);
+
+        //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
+        //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
+        auto selected_action = action_probabilities.multinomial(1, true);
+
+        return torch::log_softmax(x, /*dim=*/1);
+  }
+
+    torch::nn::Conv2d conv1;
+    torch::nn::Conv2d conv2;
+    torch::nn::Linear fc1;
+    torch::nn::Linear fc2;
+    torch::nn::Linear fc3;
+};
 
 class Agent {
 private:
@@ -239,19 +258,36 @@ std::vector<rollout_item> generate_rollout() {
                         entityLocationFrame[i][j] = 0;
                     }
                 }
-                entityLocationFrame[offset + location.y][offset + location.x];
+                entityLocationFrame[offset + location.y][offset + location.x] = 1;
 
                 //Set entire frame to the score of the current unit
                 auto entityEnergyFrame = frames.state[11];
                 float energy = entity.energy;
                 for(int i = 0; i < 64; i++) {
                     for(int j = 0; j < 64; j++) {
-                        entityLocationFrame[i][j] = energy;
+                        entityEnergyFrame[i][j] = energy;
+                    }
+                }
+
+                std::cout << frames.state << std::endl;
+
+                for(int i = 0; i < 12; i++){
+                    std::cout << std::endl << std::endl << "FRAME: " << i << std::endl;
+
+                    for(int j = 0; j < 64; j++) {
+                        std::cout << std::endl << j << ": \t";
+                        for(int k = 0; k < 64; k++){
+                            std::cout << frames.state[i][j][k] << " ";
+                        }
                     }
                 }
 
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
+
+                std::cout << state << std::endl;
+
+
                 state = state.unsqueeze(0);
                 auto modelOutput = myModel.forward(state);
 
@@ -302,7 +338,7 @@ std::vector<rollout_item> generate_rollout() {
 
 public:
 
-    Model myModel;
+    ActorCriticNetwork myModel;
     Agent() { 
     }
 
