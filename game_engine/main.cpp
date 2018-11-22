@@ -92,13 +92,6 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
         totalSteps = 401;
     }
 
-    //TODO:
-    // //My current unit info
-    // std::vector<std::vector<float>> unit_halite;
-    // std::vector<std::vector<float>> current_unit;
-    // unit_halite.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-    // current_unit.resize(no_of_rows, std::vector<float>(no_of_cols, initial_value));
-
     //Board info
     frame myFrame;
     auto frameData = myFrame.state;
@@ -187,6 +180,16 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
                 }
             }
         }
+
+        //Steps remaining
+        auto steps_remaining_value = totalSteps - game.turn_number + 1;
+        if(player.id.value == playerId) {
+            for(int i = 0; i < 64; i++) {
+                for(int j = 0; j < 64; j++){
+                    steps_remaining[i][j] = steps_remaining_value;
+                }
+            }
+        }
     }
 
     return myFrame;
@@ -272,9 +275,10 @@ std::vector<rollout_item> generate_rollout() {
                 std::cout << frames.state << std::endl;
 
                
-
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
+
+                frames.debug_print();
                 state = state.unsqueeze(0);
                 auto modelOutput = myModel.forward(state);
 
