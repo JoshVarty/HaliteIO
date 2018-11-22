@@ -16,9 +16,9 @@
 
 
 struct model_output {
-    float action;
-    float log_prob;
-    float value;
+    at::Tensor action;
+    at::Tensor log_prob;
+    at::Tensor value;
 };
 
 struct ActorCriticNetwork : torch::nn::Module {
@@ -37,8 +37,7 @@ public:
         register_module("fc3", fc3);
     }
 
-    torch::Tensor forward(torch::Tensor x) {
-        std::cout <<  "X: " << x << std::endl;
+    model_output forward(torch::Tensor x) {
         x = conv1->forward(x);
         x = torch::relu(x);
         x = torch::relu(conv2->forward(x));
@@ -46,16 +45,17 @@ public:
         x = torch::relu(fc1->forward(x));
 
         auto a = fc2->forward(x);
-        std::cout << a << std::endl;
-        auto action_probabilities = torch::softmax(a, /*dim=*/1);
-        std::cout << action_probabilities << std::endl;
-        auto critic_output = fc3->forward(x);
-
+        auto action_probabilities = torch::softmax(a, /*dim=*/1).squeeze(0);
         //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
         //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-        auto selected_action = action_probabilities.multinomial(1, true);
+        auto selected_action = action_probabilities.multinomial(1, true).squeeze(-1);
+        auto log_prob = action_probabilities[selected_action].log();
 
-        return torch::log_softmax(x, /*dim=*/1);
+        auto value = fc3->forward(x);
+
+        //Return action, log_prob, value
+        model_output output {selected_action, log_prob, value};
+        return output;
   }
 
     torch::nn::Conv2d conv1;
@@ -102,8 +102,6 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
     //Board info
     frame myFrame;
     auto frameData = myFrame.state;
-
-    myFrame.debug_print();
     auto halite_locations = frameData[0];
     auto steps_remaining = frameData[1];
     //My global info
@@ -277,10 +275,6 @@ std::vector<rollout_item> generate_rollout() {
 
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
-
-                std::cout << state << std::endl;
-
-
                 state = state.unsqueeze(0);
                 auto modelOutput = myModel.forward(state);
 
