@@ -14,8 +14,6 @@ class HaliteImpl;
 
 struct Replay;
 
-struct Snapshot;
-
 /** Halite game interface, exposing the top level of the game. */
 class Halite final {
     /** Transient game state. */
@@ -53,13 +51,8 @@ public:
     /**
      * Run the game.
      * @param player_commands The list of player commands.
-     * @param snapshot A snapshot of game state.
      */
-    void run_game(int numPlayers,
-                  const Snapshot &snapshot);
-
-    /** Generate a snapshot string from current game state. */
-    std::string to_snapshot(const mapgen::MapParameters &map_parameters);
+    void run_game(int numPlayers);
 
     /** Default destructor is defined where HaliteImpl is complete. */
     ~Halite();

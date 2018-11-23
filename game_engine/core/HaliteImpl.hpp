@@ -6,7 +6,6 @@
 #include "CommandTransaction.hpp"
 #include "Halite.hpp"
 #include "Replay.hpp"
-#include "Snapshot.hpp"
 #include "BotError.hpp"
 
 namespace hlt {
