@@ -20,8 +20,6 @@ struct Snapshot;
 class Halite final {
     /** Transient game state. */
 
-    /** External game state. */
-    GameStatistics &game_statistics;  /**< The statistics of the game. */
 
     /** Friend classes have full access to game state. */
 
@@ -31,6 +29,9 @@ class Halite final {
     std::mt19937 rng;                 /** The random number generator used for tie breaking. */
 
 public:
+    /** External game state. */
+    GameStatistics &game_statistics;  /**< The statistics of the game. */
+
     unsigned long turn_number{};      /**< The turn number. */
     Replay &replay;                   /**< Replay instance to collect info for visualizer. */
     PlayerLogs logs;                  /**< The player logs. */

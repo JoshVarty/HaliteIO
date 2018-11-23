@@ -14,11 +14,31 @@
 
 #include <torch/torch.h>
 
-
 struct model_output {
     at::Tensor action;
     at::Tensor log_prob;
     at::Tensor value;
+};
+
+
+struct rollout_item {
+    frame state;
+    at::Tensor action;
+    at::Tensor value;
+    at::Tensor log_prob; 
+    float reward;
+    int done;
+    int step;
+    long playerId;
+};
+
+struct processed_rollout_item {
+    double state[64*64*17];
+    double action[6];
+    double value;
+    double log_prob; //TODO: Change to Tensor
+    double reward;
+    int done;
 };
 
 struct ActorCriticNetwork : torch::nn::Module {
@@ -218,7 +238,6 @@ std::vector<rollout_item> generate_rollout() {
     game.initialize_game(numPlayers);
 
     const auto &constants = hlt::Constants::get();
-    game.replay.players.insert(game.store.players.begin(), game.store.players.end());
 
     for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
 
@@ -228,21 +247,19 @@ std::vector<rollout_item> generate_rollout() {
             return "Starting turn " + std::to_string(turn_number);
         }, Logging::Level::Debug);
         
-        // Create new turn struct for replay file, to be filled by further turn actions
-        game.replay.full_frames.emplace_back();
-
         // Add state of entities at start of turn.
         // First, update inspiration flags, so they can be used for
         // movement/mining and so they are part of the replay.
         game.update_inspiration();
-        game.replay.full_frames.back().add_entities(game.store);
 
         std::map<long, std::vector<AgentCommand>> commands;
 
         auto &players = game.store.players;
         int offset = 0;
+
+        std::vector<rollout_item> rolloutsForCurrentTurn;
+
         for (auto playerPair : players) {
-            auto frames = parseGridIntoSlices(0, game);
 
             auto id = playerPair.first.value;
             std::vector<AgentCommand> playerCommands;
@@ -251,6 +268,8 @@ std::vector<rollout_item> generate_rollout() {
             for(auto entityPair : player.entities) {
                 auto entityId = entityPair.first;
                 auto location = entityPair.second;
+
+                auto frames = parseGridIntoSlices(0, game);
 
                 auto entity = game.store.get_entity(entityId);
                 int no_of_rows = 64;
@@ -279,10 +298,24 @@ std::vector<rollout_item> generate_rollout() {
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
 
-                frames.debug_print();
+                //frames.debug_print();
                 state = state.unsqueeze(0);
                 auto modelOutput = myModel.forward(state);
                 auto actionIndex = modelOutput.action.item<int64_t>();
+
+                //state
+                //values
+                //actions
+                //log_probababilites
+                rollout_item current_rollout;
+                current_rollout.state = frames;
+                current_rollout.value = modelOutput.value;
+                current_rollout.action = modelOutput.action;
+                current_rollout.log_prob = modelOutput.log_prob;
+                current_rollout.step = game.turn_number;
+                current_rollout.playerId = player.id.value;
+                current_rollout.reward = 0;
+                current_rollout.done = 0;
 
                 std::string command = unitCommands[actionIndex];
                 playerCommands.push_back(AgentCommand(entityId.value, command));
@@ -291,7 +324,7 @@ std::vector<rollout_item> generate_rollout() {
             // auto energy = player.energy;
             //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
             auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
-            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1){
+            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
                 long factoryId = -1;
                 std::string command = "spawn";
                 playerCommands.push_back(AgentCommand(factoryId, command));
@@ -302,15 +335,40 @@ std::vector<rollout_item> generate_rollout() {
 
         game.process_turn(commands);
 
-        // Add end of frame state.
-        game.replay.full_frames.back().add_end_state(game.store);
-
         if (game.game_ended()) {
+            long winningId = -1;
+            auto stats = game.game_statistics;
+            for(auto stats : stats.player_statistics) {
+                if(stats.rank == 0) {
+                    winningId = stats.player_id.value;
+                }
+            }
+
+            if(winningId == -1) {
+                std::cout << "There was a problem, we didn't find a winning player...";
+                exit(1);
+            }
+
+            //If the game ended we have to correct the "rewards" and the "dones"
+            for(auto rolloutItem : rolloutsForCurrentTurn) {
+                rolloutItem.done = 1;
+                if(rolloutItem.playerId == winningId) {
+                    rolloutItem.reward = 1;
+                }
+                else{
+                    rolloutItem.reward = -1;
+                }
+
+                rollout.push_back(rolloutItem);
+            }
+
             break;
         }
+
+        //Add current rollouts to list
+        rollout.insert(rollout.end(), std::begin(rolloutsForCurrentTurn), std::end(rolloutsForCurrentTurn));
     }
 
-    //GAME IS OVER
 
     return rollout;
 }
@@ -321,7 +379,7 @@ public:
     Agent() { 
     }
 
-    double step(){
+    double step() {
         auto rollout = generate_rollout();
         //auto processed_rollout = process_rollout(rollout);
         return 0.0;
@@ -362,6 +420,14 @@ void ppo(Agent myAgent, uint numEpisodes) {
 
 int main(int argc, char *argv[]) {
     auto &constants = hlt::Constants::get_mut();
+
+    // auto test = torch::cuda::is_available();
+    // if (torch::cuda::is_available()) {
+    //     std::cout << "CUDA available! Training on GPU" << std::endl;
+    // } 
+    // else {
+    //     std::cout << "Training on CPU" << std::endl;
+    // }
 
     torch::Tensor tensor = torch::rand({2, 3});
     std::cout << tensor << std::endl;

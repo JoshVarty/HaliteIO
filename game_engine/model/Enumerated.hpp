@@ -7,23 +7,6 @@
 #include <map>
 #include <vector>
 
-struct rollout_item {
-    double state[64*64*17];
-    double action[6];
-    double value;
-    double log_prob; //TODO: Change to Tensor
-    double reward;
-    int done;
-};
-
-struct processed_rollout_item {
-    double state[64*64*17];
-    double action[6];
-    double value;
-    double log_prob; //TODO: Change to Tensor
-    double reward;
-    int done;
-};
 
 typedef std::pair<long, std::string> AgentCommand;
 

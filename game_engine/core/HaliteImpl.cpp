@@ -154,7 +154,7 @@ void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &comm
     auto agentCommandText = agentCommand.second;
 
     char command_type;
-    if (agentCommandText == "N" || agentCommandText == "E" || agentCommandText == "S" || agentCommandText == "W" || agentCommandText == "stay") {
+    if (agentCommandText == "N" || agentCommandText == "E" || agentCommandText == "S" || agentCommandText == "W" || agentCommandText == "still") {
         Entity::id_type entity(agentCommand.first);
         Direction direction;
 
@@ -170,7 +170,7 @@ void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &comm
         else if (agentCommandText == "W"){
             direction = Direction::West;
         }
-        else if (agentCommandText == "stay"){
+        else if (agentCommandText == "still"){
             direction = Direction::Still;
         }
         //istream >> entity >> direction;
@@ -184,6 +184,12 @@ void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &comm
         //istream >> entity;
         command = std::make_unique<ConstructCommand>(entity);
     }
+    else {
+        std::cout << "You didn't set command! What's wrong with you?" << std::endl;
+        exit(1);
+    }
+    
+
 }
 
 /** Retrieve and process commands, and update the game state for the current turn. */
