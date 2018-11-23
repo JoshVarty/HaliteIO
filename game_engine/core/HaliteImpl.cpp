@@ -189,7 +189,6 @@ void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &comm
 /** Retrieve and process commands, and update the game state for the current turn. */
 void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawCommands) {
     // Retrieve all commands
-    //TODO: convert from raw commands to Commands
     using Commands = std::vector<std::unique_ptr<Command>>;
     ordered_id_map<Player, Commands> commands{};
 
@@ -209,6 +208,7 @@ void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawComma
                 for (auto rawCommand : playerRawCommands) {
 
                     std::unique_ptr<Command> command;
+                    //Convert from our command system into the game's command system
                     parse(rawCommand, command);
                     currentCommands.push_back(std::move(command));
                 }

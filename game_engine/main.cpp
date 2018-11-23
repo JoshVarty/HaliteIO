@@ -68,7 +68,7 @@ public:
 class Agent {
 private:
 
-std::string unitCommands[6] = {"N","E","S","W","still","dropoff"};
+std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 
 frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
