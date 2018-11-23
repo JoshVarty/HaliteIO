@@ -1,5 +1,5 @@
-#include "BotCommunicationError.hpp"
 #include "Location.hpp"
+#include <iostream>
 
 namespace hlt {
 
@@ -42,7 +42,7 @@ std::istream &operator>>(std::istream &istream, Direction &direction) {
     char direction_type;
     istream >> direction_type;
     if (!from_char(direction_type, direction)) {
-        throw BotCommunicationError(to_string(direction_type));
+        std::cout <<  "Error in Location.cpp" << to_string(direction_type) << std::endl;
     }
     return istream;
 }

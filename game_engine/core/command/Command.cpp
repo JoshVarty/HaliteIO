@@ -1,6 +1,5 @@
 #include <memory>
 
-#include "BotCommunicationError.hpp"
 #include "Command.hpp"
 #include "CommandError.hpp"
 #include "CommandTransaction.hpp"
@@ -51,7 +50,8 @@ std::istream &operator>>(std::istream &istream, std::unique_ptr<Command> &comman
             break;
         }
         default:
-            throw BotCommunicationError(to_string(command_type), istream.tellg());
+           std::cout << "Error in Command.cpp" << std::endl;
+           exit(1);
         }
     }
     return istream;
