@@ -68,6 +68,8 @@ public:
 class Agent {
 private:
 
+std::string unitCommands[6] = {"N","E","S","W","still","dropoff"};
+
 frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
     int no_of_cols = 64;
@@ -274,29 +276,15 @@ std::vector<rollout_item> generate_rollout() {
 
                 std::cout << frames.state << std::endl;
 
-               
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
 
                 frames.debug_print();
                 state = state.unsqueeze(0);
                 auto modelOutput = myModel.forward(state);
+                auto actionIndex = modelOutput.action.item<int64_t>();
 
-                std::string command = "";
-
-                if(game.map.grid[location.y][location.x].energy >= 100 && !entity.energy >= 1000) {
-                    //Mine (stay still)   
-                    command = "stay";
-                }
-                else {
-                    std::vector<std::string> moves {"N", "E", "S", "W"};
-                    //Otherwise, take a random step
-                    std::mt19937 rng;
-                    rng.seed(std::random_device()());
-                    std::uniform_int_distribution<std::mt19937::result_type> dist3(0,3); // distribution in range [0, 3]
-                    auto randomIndex = dist3(rng);
-                    command = moves[randomIndex];
-                }
+                std::string command = unitCommands[actionIndex];
                 playerCommands.push_back(AgentCommand(entityId.value, command));
             }
 
