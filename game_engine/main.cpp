@@ -232,9 +232,9 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 }
 
 
-std::vector<rollout_item> generate_rollout() {
-    std::vector<rollout_item> rollout;
-    // //TODO: Set up list of episode rewards
+std::unordered_map<long, std::vector<rollout_item>> generate_rollout() {
+
+    std::unordered_map<long, std::vector<rollout_item>> rollout;
 
     //Reset environment for new game
     int map_width = 64;
@@ -272,7 +272,7 @@ std::vector<rollout_item> generate_rollout() {
         auto &players = game.store.players;
         int offset = 0;
 
-        std::vector<rollout_item> rolloutsForCurrentTurn;
+        std::unordered_map<long, rollout_item> rolloutCurrentTurnByEntityId;
 
         for (auto playerPair : players) {
 
@@ -326,7 +326,8 @@ std::vector<rollout_item> generate_rollout() {
                 current_rollout.playerId = player.id.value;
                 current_rollout.reward = 0;
                 current_rollout.done = 0;
-                rolloutsForCurrentTurn.push_back(current_rollout);
+
+                rolloutCurrentTurnByEntityId[entityId.value] = current_rollout;
 
                 std::string command = unitCommands[actionIndex];
                 playerCommands.push_back(AgentCommand(entityId.value, command));
@@ -366,23 +367,29 @@ std::vector<rollout_item> generate_rollout() {
             }
 
             //If the game ended we have to correct the "rewards" and the "dones"
-            for(auto rolloutItem : rolloutsForCurrentTurn) {
+            for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
+                auto entityId = rolloutKeyValue.first;
+                auto rolloutItem = rolloutKeyValue.second;
                 rolloutItem.done = 1;
                 if(rolloutItem.playerId == winningId) {
                     rolloutItem.reward = 1;
                 }
-                else{
+                else {
                     rolloutItem.reward = -1;
                 }
 
-                rollout.push_back(rolloutItem);
+                rollout[entityId].push_back(rolloutItem);
             }
 
             break;
         }
 
         //Add current rollouts to list
-        rollout.insert(rollout.end(), std::begin(rolloutsForCurrentTurn), std::end(rolloutsForCurrentTurn));
+        for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
+            auto entityId = rolloutKeyValue.first;
+            auto rolloutItem = rolloutKeyValue.second;
+            rollout[entityId].push_back(rolloutItem);
+        }
     }
 
     return rollout;
