@@ -349,6 +349,7 @@ std::vector<rollout_item> generate_rollout() {
         game.turn_number = game.turn_number + 1;
         if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
 
+
             game.rank_players();
 
             long winningId = -1;
@@ -373,6 +374,8 @@ std::vector<rollout_item> generate_rollout() {
                 else{
                     rolloutItem.reward = -1;
                 }
+
+                rollout.push_back(rolloutItem);
             }
 
             break;
