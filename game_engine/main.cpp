@@ -21,9 +21,9 @@ struct model_output {
 
 struct rollout_item {
     frame state;
-    at::Tensor action;
-    at::Tensor value;
-    at::Tensor log_prob; 
+    long action;
+    float value;
+    float log_prob;
     float reward;
     int done;
     int step;
@@ -319,9 +319,9 @@ std::vector<rollout_item> generate_rollout() {
                 //Create and story rollout
                 rollout_item current_rollout;
                 current_rollout.state = frames;
-                current_rollout.value = modelOutput.value;
-                current_rollout.action = modelOutput.action;
-                current_rollout.log_prob = modelOutput.log_prob;
+                current_rollout.value = modelOutput.value.item<float>();
+                current_rollout.action = actionIndex;
+                current_rollout.log_prob = modelOutput.log_prob.item<float>();
                 current_rollout.step = game.turn_number;
                 current_rollout.playerId = player.id.value;
                 current_rollout.reward = 0;
