@@ -41,21 +41,37 @@ struct processed_rollout_item {
 
 struct ActorCriticNetwork : torch::nn::Module {
 public:
+    torch::Device device;
+
     ActorCriticNetwork() 
     :   conv1(torch::nn::Conv2dOptions(12, 32, /*kernel_size=*/3)),
         conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
          fc1(32 * 60 * 60, 256),
          fc2(256, 6),           //Actor head
-         fc3(256, 1)           //Critic head
+         fc3(256, 1),           //Critic head
+         device(torch::Device(torch::kCPU))
     {
         register_module("conv1", conv1);
         register_module("conv2", conv2);
         register_module("fc1", fc1);
         register_module("fc2", fc2);
         register_module("fc3", fc3);
+
+        torch::DeviceType device_type;
+        if (torch::cuda::is_available()) {
+            std::cout << "CUDA available! Training on GPU" << std::endl;
+            device_type = torch::kCUDA;
+        } else {
+            std::cout << "Training on CPU" << std::endl;
+            device_type = torch::kCPU;
+        }
+
+        device = torch::Device(device_type);
+        this->to(device);
     }
 
     model_output forward(torch::Tensor x) {
+        x = x.to(this->device);
         x = conv1->forward(x);
         x = torch::relu(x);
         x = torch::relu(conv2->forward(x));
@@ -237,7 +253,8 @@ std::vector<rollout_item> generate_rollout() {
 
     const auto &constants = hlt::Constants::get();
 
-    for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
+    game.turn_number = 1;
+    while(true) {
 
         //Logging::set_turn_number(game.turn_number);
         //game.logs.set_turn_number(game.turn_number);
@@ -291,8 +308,6 @@ std::vector<rollout_item> generate_rollout() {
                     }
                 }
 
-                std::cout << frames.state << std::endl;
-
                 //TODO: Ask the neural network what to do now?
                 auto state = torch::from_blob(frames.state, {12,64,64});
 
@@ -301,10 +316,7 @@ std::vector<rollout_item> generate_rollout() {
                 auto modelOutput = myModel.forward(state);
                 auto actionIndex = modelOutput.action.item<int64_t>();
 
-                //state
-                //values
-                //actions
-                //log_probababilites
+                //Create and story rollout
                 rollout_item current_rollout;
                 current_rollout.state = frames;
                 current_rollout.value = modelOutput.value;
@@ -314,6 +326,7 @@ std::vector<rollout_item> generate_rollout() {
                 current_rollout.playerId = player.id.value;
                 current_rollout.reward = 0;
                 current_rollout.done = 0;
+                rolloutsForCurrentTurn.push_back(current_rollout);
 
                 std::string command = unitCommands[actionIndex];
                 playerCommands.push_back(AgentCommand(entityId.value, command));
@@ -333,11 +346,15 @@ std::vector<rollout_item> generate_rollout() {
 
         game.process_turn(commands);
 
-        if (game.game_ended()) {
+        game.turn_number = game.turn_number + 1;
+        if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
+
+            game.rank_players();
+
             long winningId = -1;
             auto stats = game.game_statistics;
             for(auto stats : stats.player_statistics) {
-                if(stats.rank == 0) {
+                if(stats.rank == 1) {
                     winningId = stats.player_id.value;
                 }
             }
@@ -366,7 +383,6 @@ std::vector<rollout_item> generate_rollout() {
         //Add current rollouts to list
         rollout.insert(rollout.end(), std::begin(rolloutsForCurrentTurn), std::end(rolloutsForCurrentTurn));
     }
-
 
     return rollout;
 }
@@ -419,18 +435,12 @@ void ppo(Agent myAgent, uint numEpisodes) {
 int main(int argc, char *argv[]) {
     auto &constants = hlt::Constants::get_mut();
 
-    //auto test = torch::cuda::is_available();
-    // if (torch::cuda::is_available()) {
-    //     std::cout << "CUDA available! Training on GPU" << std::endl;
-    // } 
-    // else {
-    //     std::cout << "Training on CPU" << std::endl;
-    // }
-
     torch::Tensor tensor = torch::rand({2, 3});
     std::cout << tensor << std::endl;
 
     Agent agent;
+
+    
     ppo(agent, 500);
 
     return 0;

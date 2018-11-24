@@ -40,18 +40,18 @@ dimension_type Map::distance(const Location &from, const Location &to) const {
  * @param map The Map to write.
  * @return The output stream.
  */
-std::ostream &operator<<(std::ostream &os, const Map &map) {
-    // Output the map dimensions.
-    os << map.width << " " << map.height << std::endl;
-    // Output the cells one after another.
-    for (const auto &row : map.grid) {
-        for (const auto &cell : row) {
-            os << cell << " ";
-        }
-        os << std::endl;
-    }
-    return os;
-}
+// std::ostream &operator<<(std::ostream &os, const Map &map) {
+//     // Output the map dimensions.
+//     os << map.width << " " << map.height << std::endl;
+//     // Output the cells one after another.
+//     for (const auto &row : map.grid) {
+//         for (const auto &cell : row) {
+//             os << cell << " ";
+//         }
+//         os << std::endl;
+//     }
+//     return os;
+// }
 
 /**
  * Move a location in a direction.

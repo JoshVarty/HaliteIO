@@ -21,7 +21,14 @@ bool CommandTransaction::check_ownership(const Player &player, Entity::id_type e
     return true;
 }
 bool CommandTransaction::check_ownership(const Player &player, Entity::id_type entity, const ConstructCommand &command) {
+
     if (!player.has_entity(entity)) {
+        std::cout << "Player: " << player.id.value << std::endl;
+        for(auto currentEntity : player.entities) {
+            std::cout << "Our ship: " << currentEntity.first << "\t" << currentEntity.second << std::endl;
+        }
+
+        std::cout << "Not our ship: " << entity << std::endl;
         construct_ownership_faulty[player.id].emplace_back(command);
         return false;
     }

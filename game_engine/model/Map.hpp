@@ -47,7 +47,7 @@ public:
      * @param map The Map to write.
      * @return The output stream.
      */
-    friend std::ostream &operator<<(std::ostream &ostream, const Map &map);
+    //friend std::ostream &operator<<(std::ostream &ostream, const Map &map);
 
     /**
      * Move a location in a direction.

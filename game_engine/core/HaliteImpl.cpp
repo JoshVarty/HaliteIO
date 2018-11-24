@@ -96,16 +96,13 @@ void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &comm
         command = std::make_unique<SpawnCommand>();
     }
     else if (agentCommandText == "construct") {
-        Entity::id_type entity;
-        //istream >> entity;
+        Entity::id_type entity(agentCommand.first);
         command = std::make_unique<ConstructCommand>(entity);
     }
     else {
         std::cout << "You didn't set command! What's wrong with you?" << std::endl;
         exit(1);
     }
-    
-
 }
 
 /** Retrieve and process commands, and update the game state for the current turn. */
@@ -185,8 +182,8 @@ void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawComma
                     std::cout << ", aborting due to strict error check";
                     //Logging::log(stream.str(), Logging::Level::Error);
                     game.turn_number = Constants::get().MAX_TURNS;
-                    return;
                     exit(1);
+                    return;
                 }
             } else {
                 assert(offenders.empty());
@@ -406,7 +403,7 @@ bool HaliteImpl::game_ended() const {
         bool can_play = player_can_play(player);
         if (player.can_play && !can_play) {
             //Logging::log("player has insufficient resources to continue", Logging::Level::Info, player.id);
-            std::cout << "player has insufficient resources to continue" << std::endl;
+            std::cout << "player has insufficient resources to continue: " << player.id.value << std::endl;
             player.can_play = false;
         }
         if (!player.terminated && can_play) {

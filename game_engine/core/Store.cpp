@@ -57,6 +57,7 @@ Entity &Store::new_entity(energy_type energy, const Player::id_type &owner) {
  * @param id The ID of the entity.
  */
 void Store::delete_entity(const Entity::id_type id) {
+    std::cout << "Deleted Entity: " << id << std::endl;
     auto iterator = entities.find(id);
     assert(iterator != entities.end());
     entities.erase(iterator);
