@@ -2,8 +2,6 @@
 
 #include <unordered_set>
 
-#include "Logging.hpp"
-
 namespace hlt {
 namespace mapgen {
 
@@ -22,10 +20,10 @@ SymmetricalTile::SymmetricalTile(const MapParameters &parameters) :
     // Ensure that the map can be created in symmetrical fashion
     const std::unordered_set<unsigned long> ALLOWED_NUMBERS({1, 2, 4, 8, 16});
     if (ALLOWED_NUMBERS.find(num_players) == ALLOWED_NUMBERS.end()) {
-        std::ostringstream stream;
-        stream << "We cannot create a game map for the specified number of players (" << num_players << "). ";
-        stream << "Please try playing with 1, 2, 4, 8, or 16 players";
-        Logging::log(stream.str(), Logging::Level::Error);
+        //std::ostringstream stream;
+        std::cout << "We cannot create a game map for the specified number of players (" << num_players << "). ";
+        std::cout << "Please try playing with 1, 2, 4, 8, or 16 players";
+        //Logging::log(stream.str(), Logging::Level::Error);
     }
     assert(ALLOWED_NUMBERS.find(num_players) != ALLOWED_NUMBERS.end());
 
@@ -47,10 +45,9 @@ SymmetricalTile::SymmetricalTile(const MapParameters &parameters) :
 
     // Ensure these tiles then make up the whole map
     if (!(tile_width * num_tile_cols == width && tile_height * num_tile_rows == height)) {
-        std::ostringstream stream;
-        stream << "We cannot create a symmetrical map of dimensions " << width << " x " << height << " for " << num_players;
-        stream << " players. Try using dimensions that are a power of 2 instead.";
-        Logging::log(stream.str(), Logging::Level::Error);
+        std::cout << "We cannot create a symmetrical map of dimensions " << width << " x " << height << " for " << num_players;
+        std::cout << " players. Try using dimensions that are a power of 2 instead.";
+        //Logging::log(stream.str(), Logging::Level::Error);
     }
     assert(tile_width * num_tile_cols == width && tile_height * num_tile_rows == height);
 }

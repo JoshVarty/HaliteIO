@@ -1,5 +1,4 @@
 #include "TileGenerator.hpp"
-#include "Logging.hpp"
 
 namespace hlt {
 namespace mapgen {
@@ -37,10 +36,9 @@ TileGenerator::TileGenerator(const MapParameters &parameters) :
     // Ensure that the map can be subdivided into partitions for a given number of players
     // ie: a 64x64 map cannot be (most basic definition of) symmetrical for 6 players
     if ((width * height) % num_players != 0) {
-        std::ostringstream stream;
-        stream << "The map size given must be evenly divisible by the number of players. A map size of " << width << " x " << height;
-        stream << " with area of " << width * height << " violates that for " << num_players << " players.";
-        Logging::log(stream.str(), Logging::Level::Error);
+        std::cout << "The map size given must be evenly divisible by the number of players. A map size of " << width << " x " << height;
+        std::cout << " with area of " << width * height << " violates that for " << num_players << " players.";
+        //Logging::log(stream.str(), Logging::Level::Error);
     }
     assert((width * height) % num_players == 0);
 
@@ -58,11 +56,11 @@ TileGenerator::TileGenerator(const MapParameters &parameters) :
 
     // Ensure these tiles then make up the whole map
     if (!(tile_width * num_tile_cols == width && tile_height * num_tile_rows == height)) {
-        std::ostringstream stream;
-        stream << "Map must be able to be created by copying one tile over the whole map. For the given number of players we have a ";
-        stream << tile_width << " x " << tile_height << " tile, which cannot perfectly tile the given map size, "<<  width << "x" << height;
-        stream << ". Try using map dimensions that are powers of 2.";
-        Logging::log(stream.str(), Logging::Level::Error);
+        //std::ostringstream stream;
+        std::cout << "Map must be able to be created by copying one tile over the whole map. For the given number of players we have a ";
+        std::cout << tile_width << " x " << tile_height << " tile, which cannot perfectly tile the given map size, "<<  width << "x" << height;
+        std::cout << ". Try using map dimensions that are powers of 2.";
+        //Logging::log(stream.str(), Logging::Level::Error);
     }
     assert(tile_width * num_tile_cols == width && tile_height * num_tile_rows == height);
 

@@ -1,5 +1,4 @@
 #include "Replay.hpp"
-#include "Logging.hpp"
 namespace hlt {
 
 /**

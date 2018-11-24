@@ -7,7 +7,6 @@
 #include "Constants.hpp"
 #include "Generator.hpp"
 #include "Halite.hpp"
-#include "Logging.hpp"
 #include "Replay.hpp"
 #include "Enumerated.hpp"
 
@@ -240,11 +239,11 @@ std::vector<rollout_item> generate_rollout() {
 
     for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
 
-        Logging::set_turn_number(game.turn_number);
-        game.logs.set_turn_number(game.turn_number);
-        Logging::log([turn_number = game.turn_number]() {
-            return "Starting turn " + std::to_string(turn_number);
-        }, Logging::Level::Debug);
+        //Logging::set_turn_number(game.turn_number);
+        //game.logs.set_turn_number(game.turn_number);
+        // Logging::log([turn_number = game.turn_number]() {
+        //     return "Starting turn " + std::to_string(turn_number);
+        // }, Logging::Level::Debug);
         
         // Add state of entities at start of turn.
         // First, update inspiration flags, so they can be used for
