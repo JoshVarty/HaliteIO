@@ -121,12 +121,13 @@ std::string CellOwnedError<ConstructCommand>::log_message() const {
     std::ostringstream stream;
     stream << "entity "
            << command().entity
-           << " was directed to construct at ("
+           << "  construct at ("
            << cell.x
            << ", "
            << cell.y
            << "), but that cell was already owned by player "
-           << player;
+           << player
+           << " Basically someone already built something here.";
     return stream.str();
 }
 

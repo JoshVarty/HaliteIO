@@ -373,8 +373,6 @@ std::vector<rollout_item> generate_rollout() {
                 else{
                     rolloutItem.reward = -1;
                 }
-
-                rollout.push_back(rolloutItem);
             }
 
             break;
