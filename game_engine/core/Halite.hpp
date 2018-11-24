@@ -1,7 +1,6 @@
 #ifndef HALITE_H
 #define HALITE_H
 
-#include "PlayerLog.hpp"
 #include "Store.hpp"
 #include "mapgen/Generator.hpp"
 #include <memory>
@@ -32,7 +31,7 @@ public:
 
     unsigned long turn_number{};      /**< The turn number. */
     Replay &replay;                   /**< Replay instance to collect info for visualizer. */
-    PlayerLogs logs;                  /**< The player logs. */
+    //PlayerLogs logs;                  /**< The player logs. */
     Store store;                      /**< The entity store. */
     Map &map;                         /**< The game map. */
 

@@ -2,7 +2,6 @@
 #include <set>
 
 #include "HaliteImpl.hpp"
-#include "Logging.hpp"
 
 namespace hlt {
 
@@ -53,7 +52,7 @@ void HaliteImpl::initialize_game(int n_players) {
         factory.energy = 0;
         factory.owner = player_id;
         // Prepare the log.
-        game.logs.add(player_id);
+        //game.logs.add(player_id);
     }
     game.replay.full_frames.back().add_cells(game.map, changed_cells);
     update_player_stats();
@@ -62,90 +61,7 @@ void HaliteImpl::initialize_game(int n_players) {
 
 /** Run the game. */
 void HaliteImpl::run_game() {
-    const auto &constants = Constants::get();
-
-    ordered_id_map<Player, std::future<void>> results{};
-    bool success = true;
-    for (auto &[player_id, player] : game.store.players) {
-        //Logging::log("Launching with command " + player.command, Logging::Level::Info, player.id);
-        try {
-            
-            //game.networking.connect_player(player);
-
-        } catch (const BotError &e) {
-            success = false;
-            kill_player(player_id);
-            Logging::log("Player could not be launched", Logging::Level::Error, player.id);
-            Logging::log(e.what(), Logging::Level::Error);
-        }
-    }
-    if (!success) {
-        game.replay.players.insert(game.store.players.begin(), game.store.players.end());
-        Logging::log("Some players failed to launch, aborting", Logging::Level::Error);
-        return;
-    }
-
-    for (auto &[player_id, player] : game.store.players) {
-        // Logging::log("Initializing player", Logging::Level::Info, player_id);
-        // results[player_id] = std::async(std::launch::async,
-        //                                 [&networking = game.networking, &player = player] {
-        //                                     networking.initialize_player(player);
-        //                                 });
-    }
-    for (auto &[player_id, result] : results) {
-        try {
-            result.get();
-            Logging::log("Initialized player " + game.store.get_player(player_id).name, Logging::Level::Info, player_id);
-        } catch (const BotError &e) {
-            kill_player(player_id);
-        }
-    }
-    game.replay.players.insert(game.store.players.begin(), game.store.players.end());
-    Logging::log("Player initialization complete");
-
-    for (game.turn_number = 1; game.turn_number <= constants.MAX_TURNS; game.turn_number++) {
-        Logging::set_turn_number(game.turn_number);
-        game.logs.set_turn_number(game.turn_number);
-        Logging::log([turn_number = game.turn_number]() {
-            return "Starting turn " + std::to_string(turn_number);
-        }, Logging::Level::Debug);
-        // Create new turn struct for replay file, to be filled by further turn actions
-        game.replay.full_frames.emplace_back();
-
-        // Add state of entities at start of turn.
-        // First, update inspiration flags, so they can be used for
-        // movement/mining and so they are part of the replay.
-        update_inspiration();
-        game.replay.full_frames.back().add_entities(game.store);
-
-        //process_turn();
-
-        // Add end of frame state.
-        game.replay.full_frames.back().add_end_state(game.store);
-
-        if (game_ended()) {
-            break;
-        }
-    }
-    game.game_statistics.number_turns = game.turn_number;
-
-    // Add state of entities at end of game.
-    game.replay.full_frames.emplace_back();
-    update_inspiration();
-    game.replay.full_frames.back().add_entities(game.store);
-    update_player_stats();
-    game.replay.full_frames.back().add_end_state(game.store);
-
-    rank_players();
-    Logging::log("Game has ended");
-    Logging::set_turn_number(Logging::ended);
-    game.logs.set_turn_number(PlayerLog::ended);
-    for (const auto &[player_id, player] : game.store.players) {
-        game.replay.players.find(player_id)->second.terminated = player.terminated;
-        if (!player.terminated) {
-            //game.networking.kill_player(player);
-        }
-    }
+    //removed
 }
 
 void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &command) {
@@ -259,18 +175,18 @@ void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawComma
             transaction.commit();
             if (Constants::get().STRICT_ERRORS) {
                 if (!offenders.empty()) {
-                    std::ostringstream stream;
-                    stream << "Command processing failed for players: ";
+                    std::cout << "Command processing failed for players: ";
                     for (auto iterator = offenders.begin(); iterator != offenders.end(); iterator++) {
-                        stream << *iterator;
+                        std::cout << *iterator;
                         if (std::next(iterator) != offenders.end()) {
-                            stream << ", ";
+                            std::cout << ", ";
                         }
                     }
-                    stream << ", aborting due to strict error check";
-                    Logging::log(stream.str(), Logging::Level::Error);
+                    std::cout << ", aborting due to strict error check";
+                    //Logging::log(stream.str(), Logging::Level::Error);
                     game.turn_number = Constants::get().MAX_TURNS;
                     return;
+                    exit(1);
                 }
             } else {
                 assert(offenders.empty());
@@ -489,7 +405,8 @@ bool HaliteImpl::game_ended() const {
     for (auto &&[_, player] : game.store.players) {
         bool can_play = player_can_play(player);
         if (player.can_play && !can_play) {
-            Logging::log("player has insufficient resources to continue", Logging::Level::Info, player.id);
+            //Logging::log("player has insufficient resources to continue", Logging::Level::Info, player.id);
+            std::cout << "player has insufficient resources to continue" << std::endl;
             player.can_play = false;
         }
         if (!player.terminated && can_play) {
@@ -593,7 +510,8 @@ void HaliteImpl::rank_players() {
 }
 
 void HaliteImpl::kill_player(const Player::id_type &player_id) {
-    Logging::log("Killing player", Logging::Level::Warning, player_id);
+    //Logging::log("Killing player", Logging::Level::Warning, player_id);
+    std::cout << "Killing player: " << player_id << std::endl;
     auto &player = game.store.get_player(player_id);
     player.terminated = true;
     //game.networking.kill_player(player);
@@ -631,12 +549,14 @@ void HaliteImpl::handle_error(std::unordered_set<Player::id_type> &offenders,
 
     // Log the error information.
     if (error->ignored) {
-        Logging::log(message, Logging::Level::Warning, player_id);
-        game.logs.log(player_id, message, PlayerLog::Level::Warning);
+        //Logging::log(message, Logging::Level::Warning, player_id);
+        std::cout << message << " " << player_id << std::endl;
+        //game.logs.log(player_id, message, PlayerLog::Level::Warning);
     } else {
-        Logging::log(message, Logging::Level::Error, player_id);
+        //Logging::log(message, Logging::Level::Error, player_id);
+        std::cout << message << " " << player_id << std::endl;
         offenders.emplace(player_id);
-        game.logs.log(player_id, message, PlayerLog::Level::Error);
+        //game.logs.log(player_id, message, PlayerLog::Level::Error);
     }
 
     // Find the position of a command within a player's command list.
@@ -658,31 +578,29 @@ void HaliteImpl::handle_error(std::unordered_set<Player::id_type> &offenders,
         for (auto iterator = commands_begin; iterator != commands_end; iterator++) {
             auto number = std::distance(player_commands.begin(), iterator);
             auto marker = iterator == position ? ">>> " : "    ";
-            game.logs.log(player_id, marker + std::to_string(number + 1) + "   " + (*iterator)->to_bot_serial());
+            //game.logs.log(player_id, marker + std::to_string(number + 1) + "   " + (*iterator)->to_bot_serial());
         }
-        game.logs.log(player_id, "");
+        //game.logs.log(player_id, "");
     };
 
     // Log the faulty command.
     auto position = find_position(faulty);
     auto distance = std::distance(player_commands.begin(), position);
-    game.logs.log(player_id, "At command " + std::to_string(distance + 1) + " of " +
-                  std::to_string(player_commands.size()) + ":");
+    //game.logs.log(player_id, "At command " + std::to_string(distance + 1) + " of " + std::to_string(player_commands.size()) + ":");
     log_context(position);
 
     // If there is a context, log the context.
     const auto &context = error->context();
     if (!context.empty()) {
         const auto context_message = error->context_message();
-        game.logs.log(player_id, context_message);
+        //game.logs.log(player_id, context_message);
         static constexpr size_t MAX_CONTEXT_COMMANDS = 5;
         const auto context_end = context.begin() + std::min(MAX_CONTEXT_COMMANDS, context.size());
         for (auto iterator = context.begin(); iterator != context_end; iterator++) {
             log_context(find_position(*iterator));
         }
         if (context.size() > MAX_CONTEXT_COMMANDS) {
-            game.logs.log(player_id, "(suppressing " + std::to_string(context.size() - MAX_CONTEXT_COMMANDS) +
-                                     " other commands)\n");
+            //game.logs.log(player_id, "(suppressing " + std::to_string(context.size() - MAX_CONTEXT_COMMANDS) + " other commands)\n");
         }
     }
 }
