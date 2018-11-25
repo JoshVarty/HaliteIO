@@ -434,7 +434,10 @@ std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std
             processedRollout.push_back(processedRolloutItem);
         }
 
+        processed_rollouts[entityId] = processedRollout;
     }
+
+    return processed_rollouts;
 }
 
 public:
