@@ -30,16 +30,16 @@ struct RolloutItem {
 };
 
 struct ProcessedRolloutItem {
-    double state[64*64*17];
-    double action[6];
-    double value;
-    double log_prob; //TODO: Change to Tensor
-    double reward;
-    int done;
+    frame state;
+    long action;
+    float log_prob;
+    float returns;
+    float advantage;
 };
 
 struct ActorCriticNetwork : torch::nn::Module {
 public:
+
     torch::Device device;
 
     ActorCriticNetwork() 
@@ -102,6 +102,14 @@ class Agent {
 private:
 
 std::string unitCommands[6] = {"N","E","S","W","still","construct"};
+
+double discount_rate = 0.99;        //Amount by which to discount future rewards
+double tau = 0.95;                  //
+int learningRounds = 10;            //number of optimization rounds for a single rollout
+int mini_batch_number = 32;         //batch size for optimization 
+double ppo_clip = 0.2;              //
+int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
+int maximum_timesteps = 1200;       //Maximum timesteps over which to generate a rollout
 
 frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
@@ -399,6 +407,34 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std::unordered_map<long, std::vector<RolloutItem>> rollouts) {
     std::unordered_map<long, std::vector<ProcessedRolloutItem>> processed_rollouts;
 
+    for (auto keyValPair : rollouts) {
+        auto entityId = keyValPair.first;
+        auto entityRollout = keyValPair.second;
+
+        std::vector<ProcessedRolloutItem> processedRollout;
+
+        //Get last value
+        float advantage = 0;
+        auto currentReturn = entityRollout[entityRollout.size() - 1].value;
+
+        for(int i = entityRollout.size() - 2; i >= 0; i--) {
+            auto rolloutItem = entityRollout[i];
+            auto nextValue = entityRollout[i + 1].value;
+
+            currentReturn = rolloutItem.reward + this->discount_rate * rolloutItem.done * currentReturn;
+            auto td_error = currentReturn + this->discount_rate * rolloutItem.done * nextValue - rolloutItem.value;
+            advantage = advantage * this->tau * this->discount_rate * rolloutItem.done + td_error;
+
+            ProcessedRolloutItem processedRolloutItem;
+            processedRolloutItem.state = rolloutItem.state;
+            processedRolloutItem.action = rolloutItem.action;
+            processedRolloutItem.log_prob = rolloutItem.log_prob;
+            processedRolloutItem.returns = currentReturn;
+            processedRolloutItem.advantage = advantage;
+            processedRollout.push_back(processedRolloutItem);
+        }
+
+    }
 }
 
 public:
