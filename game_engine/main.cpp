@@ -354,9 +354,15 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 
         game.process_turn(commands);
 
+         //Add current rollouts to list
+        for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
+            auto entityId = rolloutKeyValue.first;
+            auto rolloutItem = rolloutKeyValue.second;
+            rollouts[entityId].push_back(rolloutItem);
+        }
+
         game.turn_number = game.turn_number + 1;
         if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
-
 
             game.rank_players();
 
@@ -374,31 +380,25 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
             }
 
             //If the game ended we have to correct the "rewards" and the "dones"
-            for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
+            for(auto rolloutKeyValue : rollouts) {
                 auto entityId = rolloutKeyValue.first;
-                auto rolloutItem = rolloutKeyValue.second;
-                rolloutItem.done = 1;
-                if(rolloutItem.playerId == winningId) {
-                    rolloutItem.reward = 1;
+                auto entityRollout = rolloutKeyValue.second;
+                auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
+
+                lastRolloutItem.done = 1;
+                if(lastRolloutItem.playerId == winningId) {
+                    lastRolloutItem.reward = 1;
                 }
                 else {
-                    rolloutItem.reward = -1;
+                    lastRolloutItem.reward = -1;
                 }
-
-                rollouts[entityId].push_back(rolloutItem);
+                
+                rollouts[entityId][entityRollout.size() - 1] = lastRolloutItem;
+                rollouts[entityId].push_back(lastRolloutItem);
             }
 
             break;
         }
-
-        //Add current rollouts to list
-        for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
-            auto entityId = rolloutKeyValue.first;
-            auto rolloutItem = rolloutKeyValue.second;
-            rollouts[entityId].push_back(rolloutItem);
-        }
-
-
     }
 
     return rollouts;
@@ -413,9 +413,16 @@ std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std
 
         std::vector<ProcessedRolloutItem> processedRollout;
 
+        //The agent didn't live long enough for us to calculate proper advantages
+        if (entityRollout.size() < 2) {
+            continue;
+        }
+
         //Get last value
         float advantage = 0;
         auto currentReturn = entityRollout[entityRollout.size() - 1].value;
+
+        float advantage_mean;
 
         for(int i = entityRollout.size() - 2; i >= 0; i--) {
             auto rolloutItem = entityRollout[i];
@@ -432,6 +439,27 @@ std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std
             processedRolloutItem.returns = currentReturn;
             processedRolloutItem.advantage = advantage;
             processedRollout.push_back(processedRolloutItem);
+
+            advantage_mean = advantage_mean + advantage;   //Accumulate all advantages
+        }
+
+        //Calculate mean from sum of advantages
+        advantage_mean = advantage_mean / processedRollout.size();
+
+        float advantage_std;
+        for(int i = 0; i < processedRollout.size(); i++) {
+            auto rolloutItem = processedRollout[i];
+            auto differenceFromMean = (rolloutItem.advantage - advantage_mean);
+            advantage_std = advantage_std + (differenceFromMean * differenceFromMean);
+        }
+
+        //Calculate std from sum of squared differences
+        advantage_std = advantage_std / (entityRollout.size() - 1);
+        advantage_std = sqrt(advantage_std);
+
+        //Normalize all of the advantages
+        for(auto processedRolloutItem : processedRollout) {
+            processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
         }
 
         processed_rollouts[entityId] = processedRollout;
@@ -449,9 +477,8 @@ public:
     double step() {
         auto rollouts = generate_rollouts();
         auto processed_rollout = process_rollouts(rollouts);
-        //TODO:
-        //Normalize advantages
-        //train_network
+        // train_network
+        
 
         //TODO:
         //return average score?
