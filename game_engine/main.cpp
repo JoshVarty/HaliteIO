@@ -12,14 +12,13 @@
 
 #include <torch/torch.h>
 
-struct model_output {
+struct ModelOutput {
     at::Tensor action;
     at::Tensor log_prob;
     at::Tensor value;
 };
 
-
-struct rollout_item {
+struct RolloutItem {
     frame state;
     long action;
     float value;
@@ -30,7 +29,7 @@ struct rollout_item {
     long playerId;
 };
 
-struct processed_rollout_item {
+struct ProcessedRolloutItem {
     double state[64*64*17];
     double action[6];
     double value;
@@ -70,7 +69,7 @@ public:
         this->to(device);
     }
 
-    model_output forward(torch::Tensor x) {
+    ModelOutput forward(torch::Tensor x) {
         x = x.to(this->device);
         x = conv1->forward(x);
         x = torch::relu(x);
@@ -88,7 +87,7 @@ public:
         auto value = fc3->forward(x);
 
         //Return action, log_prob, value
-        model_output output {selected_action, log_prob, value};
+        ModelOutput output {selected_action, log_prob, value};
         return output;
   }
 
@@ -232,9 +231,9 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 }
 
 
-std::unordered_map<long, std::vector<rollout_item>> generate_rollout() {
+std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 
-    std::unordered_map<long, std::vector<rollout_item>> rollout;
+    std::unordered_map<long, std::vector<RolloutItem>> rollouts;
 
     //Reset environment for new game
     int map_width = 64;
@@ -272,7 +271,7 @@ std::unordered_map<long, std::vector<rollout_item>> generate_rollout() {
         auto &players = game.store.players;
         int offset = 0;
 
-        std::unordered_map<long, rollout_item> rolloutCurrentTurnByEntityId;
+        std::unordered_map<long, RolloutItem> rolloutCurrentTurnByEntityId;
 
         for (auto playerPair : players) {
 
@@ -317,7 +316,7 @@ std::unordered_map<long, std::vector<rollout_item>> generate_rollout() {
                 auto actionIndex = modelOutput.action.item<int64_t>();
 
                 //Create and story rollout
-                rollout_item current_rollout;
+                RolloutItem current_rollout;
                 current_rollout.state = frames;
                 current_rollout.value = modelOutput.value.item<float>();
                 current_rollout.action = actionIndex;
@@ -378,7 +377,7 @@ std::unordered_map<long, std::vector<rollout_item>> generate_rollout() {
                     rolloutItem.reward = -1;
                 }
 
-                rollout[entityId].push_back(rolloutItem);
+                rollouts[entityId].push_back(rolloutItem);
             }
 
             break;
@@ -388,11 +387,18 @@ std::unordered_map<long, std::vector<rollout_item>> generate_rollout() {
         for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
             auto entityId = rolloutKeyValue.first;
             auto rolloutItem = rolloutKeyValue.second;
-            rollout[entityId].push_back(rolloutItem);
+            rollouts[entityId].push_back(rolloutItem);
         }
+
+
     }
 
-    return rollout;
+    return rollouts;
+}
+
+std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std::unordered_map<long, std::vector<RolloutItem>> rollouts) {
+    std::unordered_map<long, std::vector<ProcessedRolloutItem>> processed_rollouts;
+
 }
 
 public:
@@ -402,8 +408,14 @@ public:
     }
 
     double step() {
-        auto rollout = generate_rollout();
-        //auto processed_rollout = process_rollout(rollout);
+        auto rollouts = generate_rollouts();
+        auto processed_rollout = process_rollouts(rollouts);
+        //TODO:
+        //Normalize advantages
+        //train_network
+
+        //TODO:
+        //return average score?
         return 0.0;
     }
 };
