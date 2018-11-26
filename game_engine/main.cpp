@@ -5,6 +5,7 @@
 #include <math.h>
 #include <iterator>
 #include <vector>
+#include <algorithm>
 
 #include "Constants.hpp"
 #include "Generator.hpp"
@@ -51,7 +52,7 @@ std::vector<ProcessedRolloutItem>::iterator batchEnd;
         this->batchSize = batchSize;
         this->data = data;
         this->numEntries = data.size();
-        //TODO: Reset
+        this->reset();
     }
 
     void reset() {
@@ -70,25 +71,22 @@ std::vector<ProcessedRolloutItem>::iterator batchEnd;
         
         batchStart = batchEnd; //TODO: Does this copy?
 
+        //Advance batchEnd to either the end of the next batch or
+        //to the end of the data, whichever comes first
         for(int i = 0; i < batchSize; i++){
             batchEnd = batchEnd + 1;
-            if(batchEnd == )
+            if(batchEnd == this->data.end()) {
+                break;
+            }
         }
 
-        auto b1 = batchEnd;
-        advance(b1, batchSize);
-        auto b2 = data.end();
-
-        if(b1 )
-
-
-        self.batch_end = min(self.batch_start + self.batch_size, self.num_entries)
-
-
-
-
+        return batch;
     }
 
+    void shuffle() {
+        std::random_shuffle(this->data.begin(), this->data.end());
+        this->reset();
+    }
 };
 
 struct ActorCriticNetwork : torch::nn::Module {
