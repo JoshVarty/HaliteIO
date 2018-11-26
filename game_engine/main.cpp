@@ -62,13 +62,13 @@ std::vector<ProcessedRolloutItem>::iterator batchEnd;
     }
 
     bool end() {
-        return this->batchStart >= this->data.end();
+        return this->batchStart == this->data.end();
     }
 
     std::vector<ProcessedRolloutItem> next_batch(){
         std::vector<ProcessedRolloutItem> batch;
         batch.insert(batch.end(), batchStart, batchEnd);
-        
+
         batchStart = batchEnd; //TODO: Does this copy?
 
         //Advance batchEnd to either the end of the next batch or
@@ -94,7 +94,7 @@ public:
 
     torch::Device device;
 
-    ActorCriticNetwork() 
+    ActorCriticNetwork()
     :   conv1(torch::nn::Conv2dOptions(12, 32, /*kernel_size=*/3)),
         conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
          fc1(32 * 60 * 60, 256),
@@ -121,7 +121,7 @@ public:
         this->to(device);
     }
 
-    ModelOutput forward(torch::Tensor x) {
+    ModelOutput forward(torch::Tensor x, torch::Tensor selected_action) {
         x = x.to(this->device);
         x = conv1->forward(x);
         x = torch::relu(x);
@@ -131,13 +131,15 @@ public:
 
         auto a = fc2->forward(x);
         auto action_probabilities = torch::softmax(a, /*dim=*/1).squeeze(0);
-        //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
-        //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-        auto selected_action = action_probabilities.multinomial(1, true).squeeze(-1);
+
+        if(selected_action.numel() == 0) {
+            //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
+            //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
+            selected_action = action_probabilities.multinomial(1, true).squeeze(-1);
+        }
+
         auto log_prob = action_probabilities[selected_action].log();
-
         auto value = fc3->forward(x);
-
         //Return action, log_prob, value
         ModelOutput output {selected_action, log_prob, value};
         return output;
@@ -158,7 +160,7 @@ std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 10;            //number of optimization rounds for a single rollout
-int mini_batch_number = 32;         //batch size for optimization 
+int mini_batch_number = 32;         //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
 int maximum_timesteps = 1200;       //Maximum timesteps over which to generate a rollout
@@ -173,7 +175,7 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
     int totalSteps = 0;
     if (numRows == 64) {
         totalSteps = 501;
-    } 
+    }
     else if (numRows == 56) {
         totalSteps = 476;
     }
@@ -226,7 +228,7 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
                     enemy_ships[y][x] = 2;
                 }
             }
-            
+
             cellX = cellX + 1;
         }
         cellY = cellY + 1;
@@ -242,7 +244,7 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
         if(player.id.value == playerId) {
             //We mark our spawn as a 'dropoff' because it can also be used as one
             my_dropoffs[y][x] = 1;
-        } 
+        }
         else {
             //We mark the enemy spawn as a 'dropoff' because it can also be used as one
             enemy_dropoffs[y][x] = 2;
@@ -306,7 +308,7 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
     hlt::mapgen::Generator::generate(map, map_parameters);
     hlt::GameStatistics game_statistics;
     hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
-    hlt::Halite game(map, game_statistics, replay);    
+    hlt::Halite game(map, game_statistics, replay);
 
     game.initialize_game(numPlayers);
 
@@ -320,7 +322,7 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
         // Logging::log([turn_number = game.turn_number]() {
         //     return "Starting turn " + std::to_string(turn_number);
         // }, Logging::Level::Debug);
-        
+
         // Add state of entities at start of turn.
         // First, update inspiration flags, so they can be used for
         // movement/mining and so they are part of the replay.
@@ -372,7 +374,8 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 
                 //frames.debug_print();
                 state = state.unsqueeze(0);
-                auto modelOutput = myModel.forward(state);
+                torch::Tensor emptyAction;
+                auto modelOutput = myModel.forward(state, emptyAction);
                 auto actionIndex = modelOutput.action.item<int64_t>();
 
                 //Create and story rollout
@@ -446,7 +449,7 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
                 else {
                     lastRolloutItem.reward = -1;
                 }
-                
+
                 rollouts[entityId][entityRollout.size() - 1] = lastRolloutItem;
                 rollouts[entityId].push_back(lastRolloutItem);
             }
@@ -458,8 +461,8 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
     return rollouts;
 }
 
-std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std::unordered_map<long, std::vector<RolloutItem>> rollouts) {
-    std::unordered_map<long, std::vector<ProcessedRolloutItem>> processed_rollouts;
+std::vector<ProcessedRolloutItem> process_rollouts(std::unordered_map<long, std::vector<RolloutItem>> rollouts) {
+    std::vector<ProcessedRolloutItem> processed_rollouts;
 
     for (auto keyValPair : rollouts) {
         auto entityId = keyValPair.first;
@@ -516,17 +519,63 @@ std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std
             processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
         }
 
-        processed_rollouts[entityId] = processedRollout;
+        processed_rollouts.insert(processed_rollouts.end(), processedRollout.begin(), processedRollout.end());
     }
 
     return processed_rollouts;
 }
 
-void train_network(std::unordered_map<long, std::vector<ProcessedRolloutItem>> processed_rollout) {
+void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 
     //TODO: Some kind of batching mechanism
-    for(int i = 0; i < this->learningRounds; i++){
+    Batcher batcher(this->mini_batch_number, processed_rollout);
+    for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
+        batcher.shuffle();
+
+        while(!batcher.end()) {
+            auto nextBatch = batcher.next_batch();
+
+            frame sampled_states[this->mini_batch_number];
+            float sampled_actions[this->mini_batch_number];
+            float sampled_log_probs_old[this->mini_batch_number];
+            float sampled_returns[this->mini_batch_number];
+            float sampled_advantages[this->mini_batch_number];
+
+            for(int i = 0; i < this->mini_batch_number; i++) {
+                sampled_states[i] = nextBatch[i].state;
+                sampled_actions[i] = nextBatch[i].action;
+                sampled_log_probs_old[i] = nextBatch[i].log_prob;
+                sampled_returns[i] = nextBatch[i].returns;
+                sampled_advantages[i] = nextBatch[i].advantage;
+            }
+
+            //TODO: Speed this up. from_blob + concatenate?
+            //Time them both and use faster version
+            //Don't forget to time with compiler optimizations
+            auto stateTensor = at::zeros(this->mini_batch_number * 12 * 64 * 64);
+            float* data = stateTensor.data<float>();
+            for(int i = 0; i < this->mini_batch_number; i++) {
+                for(int j = 0; j < 12; j++) {
+                    for(int k = 0; k < 64; k++) {
+                        for(int l = 0; l < 64; l++) {
+                            *data++ = sampled_states[i].state[j][k][l];
+                        }
+                    }
+                }
+            }
+
+            std::cout<<stateTensor.size(0) << std::endl;
+            // std::cout<<stateTensor.size(1) << std::endl;
+            // std::cout<<stateTensor.size(2) << std::endl;
+            // std::cout<<stateTensor.size(3) << std::endl;
+
+            auto test = stateTensor.view({this->mini_batch_number , 12 , 64 , 64});
+
+            //std::cout << stateTensor << std::endl;
+            auto actionsTensor = at::from_blob(sampled_actions, {this->mini_batch_number});
+            auto modelOutput = this->myModel.forward(test, actionsTensor);
+        }
 
         //While there is data left to process
 
@@ -536,14 +585,14 @@ void train_network(std::unordered_map<long, std::vector<ProcessedRolloutItem>> p
 public:
 
     ActorCriticNetwork myModel;
-    Agent() { 
+    Agent() {
     }
 
     double step() {
         auto rollouts = generate_rollouts();
         auto processed_rollout = process_rollouts(rollouts);
         // train_network
-        train_network(processed_rollout)
+        train_network(processed_rollout);
 
         //TODO:
         //return average score?
@@ -591,7 +640,7 @@ int main(int argc, char *argv[]) {
 
     Agent agent;
 
-    
+
     ppo(agent, 500);
 
     return 0;
