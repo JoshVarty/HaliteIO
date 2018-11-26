@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 2.8.2)
+
+project(deps-download NONE)
+
+set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
+
+include(ExternalProject)

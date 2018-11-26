@@ -7,9 +7,16 @@ __pycache__/
 *.so
 
 .vscode/*
+*/.vscode/*
 docs/
 hlt/
 replays/
+*/CMakeFiles/*
+*/Makefile
+*/halite
+*.hlt
+CMakeCache.txt
+*/libtorch/*
 
 # Distribution / packaging
 .Python
