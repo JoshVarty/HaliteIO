@@ -3,6 +3,8 @@
 #include <sstream>
 #include <iostream>
 #include <math.h>
+#include <iterator>
+#include <vector>
 
 #include "Constants.hpp"
 #include "Generator.hpp"
@@ -35,6 +37,58 @@ struct ProcessedRolloutItem {
     float log_prob;
     float returns;
     float advantage;
+};
+
+class Batcher {
+public:
+int batchSize;
+int numEntries;
+std::vector<ProcessedRolloutItem> data;
+std::vector<ProcessedRolloutItem>::iterator batchStart;
+std::vector<ProcessedRolloutItem>::iterator batchEnd;
+
+    Batcher(int batchSize, std::vector<ProcessedRolloutItem> data) {
+        this->batchSize = batchSize;
+        this->data = data;
+        this->numEntries = data.size();
+        //TODO: Reset
+    }
+
+    void reset() {
+        this->batchStart = data.begin();
+        this->batchEnd = data.begin();
+        advance(batchEnd, batchSize);
+    }
+
+    bool end() {
+        return this->batchStart >= this->data.end();
+    }
+
+    std::vector<ProcessedRolloutItem> next_batch(){
+        std::vector<ProcessedRolloutItem> batch;
+        batch.insert(batch.end(), batchStart, batchEnd);
+        
+        batchStart = batchEnd; //TODO: Does this copy?
+
+        for(int i = 0; i < batchSize; i++){
+            batchEnd = batchEnd + 1;
+            if(batchEnd == )
+        }
+
+        auto b1 = batchEnd;
+        advance(b1, batchSize);
+        auto b2 = data.end();
+
+        if(b1 )
+
+
+        self.batch_end = min(self.batch_start + self.batch_size, self.num_entries)
+
+
+
+
+    }
+
 };
 
 struct ActorCriticNetwork : torch::nn::Module {
@@ -468,6 +522,17 @@ std::unordered_map<long, std::vector<ProcessedRolloutItem>> process_rollouts(std
     return processed_rollouts;
 }
 
+void train_network(std::unordered_map<long, std::vector<ProcessedRolloutItem>> processed_rollout) {
+
+    //TODO: Some kind of batching mechanism
+    for(int i = 0; i < this->learningRounds; i++){
+        //Shuffle the rollouts
+
+        //While there is data left to process
+
+    }
+}
+
 public:
 
     ActorCriticNetwork myModel;
@@ -478,7 +543,7 @@ public:
         auto rollouts = generate_rollouts();
         auto processed_rollout = process_rollouts(rollouts);
         // train_network
-        
+        train_network(processed_rollout)
 
         //TODO:
         //return average score?
