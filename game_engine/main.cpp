@@ -384,7 +384,8 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
                 current_rollout.step = game.turn_number;
                 current_rollout.playerId = player.id.value;
                 current_rollout.reward = 0;
-                current_rollout.done = 0;
+                //This seems backwards but we represent "Done" as 0 and "Not done" as 1
+                current_rollout.done = 1;
 
                 rolloutCurrentTurnByEntityId[entityId.value] = current_rollout;
 
@@ -437,7 +438,8 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
                 auto entityRollout = rolloutKeyValue.second;
                 auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
 
-                lastRolloutItem.done = 1;
+                //This seems backwards but we represent "Done" as 0 and "Not done" as 1
+                lastRolloutItem.done = 0;
                 if(lastRolloutItem.playerId == winningId) {
                     lastRolloutItem.reward = 1;
                 }
