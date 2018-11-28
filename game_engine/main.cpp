@@ -539,13 +539,14 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
         while(!batcher.end()) {
             auto nextBatch = batcher.next_batch();
 
-            frame sampled_states[this->mini_batch_number];
-            float sampled_actions[this->mini_batch_number];
-            float sampled_log_probs_old[this->mini_batch_number];
-            float sampled_returns[this->mini_batch_number];
-            float sampled_advantages[this->mini_batch_number];
+            auto batchSize = (long)(nextBatch.size());
+            frame sampled_states[batchSize];
+            float sampled_actions[batchSize];
+            float sampled_log_probs_old[batchSize];
+            float sampled_returns[batchSize];
+            float sampled_advantages[batchSize];
 
-            for(int i = 0; i < this->mini_batch_number; i++) {
+            for(int i = 0; i < batchSize; i++) {
                 sampled_states[i] = nextBatch[i].state;
                 sampled_actions[i] = nextBatch[i].action;
                 sampled_log_probs_old[i] = nextBatch[i].log_prob;
@@ -555,39 +556,47 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 
             //Create stack of Tensors as input to neural network
             std::vector<at::Tensor> stateList;
-            for(int i = 0; i < this->mini_batch_number; i++) {
+            for(int i = 0; i < batchSize; i++) {
                 stateList.push_back(torch::from_blob(sampled_states[i].state, {12,64,64}));
             }
 
             auto batchInput = torch::stack(stateList);
-            auto actionsTensor = torch::from_blob(sampled_actions, {this->mini_batch_number});
+            auto actionsTensor = torch::from_blob(sampled_actions, { batchSize });
             actionsTensor = actionsTensor.toType(torch::ScalarType::Long).unsqueeze(-1);
             auto modelOutput = this->myModel.forward(batchInput, actionsTensor);
             auto log_probs = modelOutput.log_prob;
             auto values = modelOutput.value;
 
-            auto sampled_advantages_tensor = torch::from_blob(sampled_advantages, {this->mini_batch_number, 1}).to(device);
-            auto ratio = (log_probs - torch::from_blob(sampled_log_probs_old, {this->mini_batch_number, 1}).to(device)).exp();
+            auto sampled_advantages_tensor = torch::from_blob(sampled_advantages, { batchSize, 1}).to(device);
+            auto ratio = (log_probs - torch::from_blob(sampled_log_probs_old, { batchSize, 1}).to(device)).exp();
             auto obj = ratio * sampled_advantages_tensor;
             auto obj_clipped = ratio.clamp(1.0 - ppo_clip, 1.0 + ppo_clip) * sampled_advantages_tensor;
             auto policy_loss = -torch::min(obj, obj_clipped).mean({0});
 
             // TODO: Why do they do 0.5?
-            auto sampled_returns_tensor = torch::from_blob(sampled_returns, {this->mini_batch_number, 1}).to(device);
+            auto sampled_returns_tensor = torch::from_blob(sampled_returns, {batchSize, 1}).to(device);
             auto value_loss = 0.5 * (sampled_returns_tensor - values).pow(2).mean();
+
+            optimizer.zero_grad();
+            auto totalLoss = policy_loss + value_loss;
+            totalLoss.backward();
+            //TODO: Can we use gradient clipping?
+            optimizer.step();
         }
-
-        //While there is data left to process
-
     }
+
+    std::cout << "Finished learning step" << std::endl;
 }
 
 public:
 
     ActorCriticNetwork myModel;
     torch::Device device;
+    torch::optim::Adam optimizer;
+
     Agent():
-        device(torch::Device(torch::kCPU)) 
+        device(torch::Device(torch::kCPU)),
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
