@@ -130,15 +130,18 @@ public:
         x = torch::relu(fc1->forward(x));
 
         auto a = fc2->forward(x);
-        auto action_probabilities = torch::softmax(a, /*dim=*/1).squeeze(0);
+        auto action_probabilities = torch::softmax(a, /*dim=*/1);
 
         if(selected_action.numel() == 0) {
             //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
             //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-            selected_action = action_probabilities.multinomial(1, true).squeeze(-1);
+            selected_action = action_probabilities.multinomial(1, true);
+        }
+        else {
+            selected_action = selected_action.to(device);
         }
 
-        auto log_prob = action_probabilities[selected_action].log();
+        auto log_prob = action_probabilities.gather(1, selected_action).log();
         auto value = fc3->forward(x);
         //Return action, log_prob, value
         ModelOutput output {selected_action, log_prob, value};
@@ -558,7 +561,7 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 
             auto batchInput = torch::stack(stateList);
             auto actionsTensor = torch::from_blob(sampled_actions, {this->mini_batch_number});
-            actionsTensor = actionsTensor.toType(torch::ScalarType::Long);
+            actionsTensor = actionsTensor.toType(torch::ScalarType::Long).unsqueeze(-1);
             auto modelOutput = this->myModel.forward(batchInput, actionsTensor);
         }
 
