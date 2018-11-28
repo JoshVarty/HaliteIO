@@ -563,6 +563,11 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
             auto actionsTensor = torch::from_blob(sampled_actions, {this->mini_batch_number});
             actionsTensor = actionsTensor.toType(torch::ScalarType::Long).unsqueeze(-1);
             auto modelOutput = this->myModel.forward(batchInput, actionsTensor);
+            auto log_probs = modelOutput.log_prob;
+            auto values = modelOutput.value;
+
+            auto ratio = (log_probs - torch::from_blob(sampled_log_probs_old, {this->mini_batch_number, 1}).to(device)).exp();
+
         }
 
         //While there is data left to process
@@ -573,7 +578,18 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 public:
 
     ActorCriticNetwork myModel;
-    Agent() {
+    torch::Device device;
+    Agent():
+        device(torch::Device(torch::kCPU)) 
+    {
+        torch::DeviceType device_type;
+        if (torch::cuda::is_available()) {
+            device_type = torch::kCUDA;
+        } else {
+            device_type = torch::kCPU;
+        }
+
+        device = torch::Device(device_type);
     }
 
     double step() {
