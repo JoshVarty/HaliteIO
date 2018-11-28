@@ -141,6 +141,7 @@ public:
             selected_action = selected_action.to(device);
         }
 
+
         auto log_prob = action_probabilities.gather(1, selected_action).log();
         auto value = fc3->forward(x);
         //Return action, log_prob, value
@@ -422,6 +423,7 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 
         game.turn_number = game.turn_number + 1;
         if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
+            std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
 
             game.rank_players();
 
@@ -596,7 +598,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.000001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
