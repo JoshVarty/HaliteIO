@@ -160,7 +160,7 @@ std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 10;            //number of optimization rounds for a single rollout
-int mini_batch_number = 32;         //batch size for optimization
+int mini_batch_number = 8;         //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
 int maximum_timesteps = 1200;       //Maximum timesteps over which to generate a rollout
@@ -550,31 +550,16 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
                 sampled_advantages[i] = nextBatch[i].advantage;
             }
 
-            //TODO: Speed this up. from_blob + concatenate?
-            //Time them both and use faster version
-            //Don't forget to time with compiler optimizations
-            auto stateTensor = at::zeros(this->mini_batch_number * 12 * 64 * 64);
-            float* data = stateTensor.data<float>();
+            //Create stack of Tensors as input to neural network
+            std::vector<at::Tensor> stateList;
             for(int i = 0; i < this->mini_batch_number; i++) {
-                for(int j = 0; j < 12; j++) {
-                    for(int k = 0; k < 64; k++) {
-                        for(int l = 0; l < 64; l++) {
-                            *data++ = sampled_states[i].state[j][k][l];
-                        }
-                    }
-                }
+                stateList.push_back(torch::from_blob(sampled_states[i].state, {12,64,64}));
             }
 
-            std::cout<<stateTensor.size(0) << std::endl;
-            // std::cout<<stateTensor.size(1) << std::endl;
-            // std::cout<<stateTensor.size(2) << std::endl;
-            // std::cout<<stateTensor.size(3) << std::endl;
-
-            auto test = stateTensor.view({this->mini_batch_number , 12 , 64 , 64});
-
-            //std::cout << stateTensor << std::endl;
-            auto actionsTensor = at::from_blob(sampled_actions, {this->mini_batch_number});
-            auto modelOutput = this->myModel.forward(test, actionsTensor);
+            auto batchInput = torch::stack(stateList);
+            auto actionsTensor = torch::from_blob(sampled_actions, {this->mini_batch_number});
+            actionsTensor = actionsTensor.toType(torch::ScalarType::Long);
+            auto modelOutput = this->myModel.forward(batchInput, actionsTensor);
         }
 
         //While there is data left to process
@@ -633,14 +618,8 @@ void ppo(Agent myAgent, uint numEpisodes) {
 
 
 int main(int argc, char *argv[]) {
-    auto &constants = hlt::Constants::get_mut();
-
-    torch::Tensor tensor = torch::rand({2, 3});
-    std::cout << tensor << std::endl;
 
     Agent agent;
-
-
     ppo(agent, 500);
 
     return 0;
