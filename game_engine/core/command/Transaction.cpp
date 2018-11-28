@@ -178,8 +178,7 @@ void MoveTransaction::commit() {
 
             if (entity.energy < required) {
                 // Entity does not have enough energy, ignore command.
-                error_generated<InsufficientEnergyError<MoveCommand>>(player_id, command, entity.energy,
-                                                                      required, !Constants::get().STRICT_ERRORS);
+                // error_generated<InsufficientEnergyError<MoveCommand>>(player_id, command, entity.energy, required, !Constants::get().STRICT_ERRORS);
                 continue;
             }
             causes.emplace(command.entity, command);
