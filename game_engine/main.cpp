@@ -566,7 +566,11 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
             auto log_probs = modelOutput.log_prob;
             auto values = modelOutput.value;
 
+            auto sampled_advantages_tensor = torch::from_blob(sampled_advantages, {this->mini_batch_number, 1}).to(device);
             auto ratio = (log_probs - torch::from_blob(sampled_log_probs_old, {this->mini_batch_number, 1}).to(device)).exp();
+            auto obj = ratio * sampled_advantages_tensor;
+            auto obj_clipped = ratio.clamp(1.0 - ppo_clip, 1.0 + ppo_clip) * sampled_advantages_tensor;
+            auto policy_loss = -torch::min(obj, obj_clipped).mean({0});
 
         }
 
