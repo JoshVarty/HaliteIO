@@ -163,7 +163,7 @@ std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 
 double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
-int learningRounds = 10;            //number of optimization rounds for a single rollout
+int learningRounds = 5;             //number of optimization rounds for a single rollout
 std::size_t mini_batch_number = 32; //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
@@ -296,6 +296,37 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
     return myFrame;
 }
 
+enum GameResult {
+    Player1,
+    Player2,
+    Tie
+};
+
+GameResult getWinner(hlt::PlayerStatistics p1, hlt::PlayerStatistics other){
+      if (p1.last_turn_alive == other.last_turn_alive) {
+        auto turn_to_compare = p1.last_turn_alive;
+        while (p1.turn_productions[turn_to_compare] == other.turn_productions[turn_to_compare]) {
+            if (--turn_to_compare < 0) {
+                // Players exactly tied on all turns
+                return GameResult::Tie;
+            }
+        }
+
+        if(p1.turn_productions[turn_to_compare] < other.turn_productions[turn_to_compare]){
+            return GameResult::Player2;
+        }
+        else{
+            return GameResult::Player1;
+        }
+    } else {
+        if(p1.last_turn_alive < other.last_turn_alive){
+            return GameResult::Player2;
+        }
+        else{
+            return GameResult::Player1;
+        }
+    }
+}
 
 std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 
@@ -419,32 +450,23 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
         if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
             std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
 
-
-            game.rank_players();
-
-            long winningId = -1;
-            auto stats = game.game_statistics;
-            for(auto stats : stats.player_statistics) {
-                if(stats.rank == 1) {
-                    winningId = stats.player_id.value;
-                }
+            auto winningId = -1;
+            auto winner = getWinner(game.game_statistics.player_statistics[0], game.game_statistics.player_statistics[1]);
+            if (winner == GameResult::Player1) {
+                winningId = 0;
+            }
+            else if (winner == GameResult::Player2) {
+                winningId = 1;
             }
 
             std::cout << std::endl;
             std::cout << "Winner: " << winningId << std::endl;
             std::cout << std::endl;
-            std::cout << "Player 1 total mined: " << game.game_statistics.player_statistics[0].total_mined << std::endl;
-            std::cout << "Player 1 total production: " << game.game_statistics.player_statistics[0].total_production << std::endl;
-            std::cout << "Player 1 total bonus: " << game.game_statistics.player_statistics[0].total_bonus<< std::endl;
-            std::cout << "Player 2 total mined: " << game.game_statistics.player_statistics[1].total_mined << std::endl;
-            std::cout << "Player 2 total production: " << game.game_statistics.player_statistics[1].total_production << std::endl;
-            std::cout << "Player 2 total bonus: " << game.game_statistics.player_statistics[1].total_bonus<< std::endl;
+            auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
+            auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
+            std::cout << "Player 1 total mined: " << p1TurnProductions[p1TurnProductions.size() - 1] << std::endl;
+            std::cout << "Player 2 total mined: " << p2TurnProductions[p2TurnProductions.size() - 1] << std::endl;
             std::cout << std::endl;
-
-            if(winningId == -1) {
-                std::cout << "There was a problem, we didn't find a winning player...";
-                exit(1);
-            }
 
             //If the game ended we have to correct the "rewards" and the "dones"
             for(auto rolloutKeyValue : rollouts) {
@@ -542,16 +564,16 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
         batcher.shuffle();
+        frame sampled_states[this->mini_batch_number];
+        float sampled_actions[this->mini_batch_number];
+        float sampled_log_probs_old[this->mini_batch_number];
+        float sampled_returns[this->mini_batch_number];
+        float sampled_advantages[this->mini_batch_number];
 
         while(!batcher.end()) {
             auto nextBatch = batcher.next_batch();
 
             auto batchSize = (long)(nextBatch.size());
-            frame sampled_states[batchSize];
-            float sampled_actions[batchSize];
-            float sampled_log_probs_old[batchSize];
-            float sampled_returns[batchSize];
-            float sampled_advantages[batchSize];
 
             for(int i = 0; i < batchSize; i++) {
                 sampled_states[i] = nextBatch[i].state;
