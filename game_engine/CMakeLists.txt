@@ -13,10 +13,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -pedantic -Wextra -Wno-unused-variable -D_GLIBCXX_USE_CXX11_ABI=0")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -pedantic -Wextra -Wno-unused-variable -g -O0 -fno-inline -D_GLIBCXX_USE_CXX11_ABI=0")
-#if(NOT MINGW)
-#    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined,address")
-#endif()
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -pedantic -Wextra -Wno-unused-variable -g -O0 -D_GLIBCXX_USE_CXX11_ABI=0")
 
 # versions of cmake before 3.4 always link with -rdynamic on linux, which breaks static linkage with clang
 # unfortunately travis right now only has cmake 3.2, so have to do this workaround for now
@@ -89,15 +86,7 @@ add_executable(halite $<TARGET_OBJECTS:halite_core> main.cpp)
 file(GLOB_RECURSE SOURCE ${CMAKE_SOURCE_DIR}/test/*.[ch]*)
 set(TEST_FILES "${TEST_FILES}" ${SOURCE})
 
-if(CMAKE_BUILD_TYPE MATCHES Debug AND NOT MINGW)
-    # Link dynamically on Linux since AddressSanitizer doesn't work with static linkage
-    # But link statically on MinGW, since it doesn't have address sanitizer and keeping MinGW dlls around is a pain
-    target_link_libraries(halite pthread)
-else()
-    # On Linux, make sure to link using the whole-archive option
-    # See: https://stackoverflow.com/questions/35116327
-    target_link_libraries(halite -Wl,--whole-archive pthread -Wl,--no-whole-archive -static libzstd_static)
-endif()
+target_link_libraries(halite pthread)
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 
