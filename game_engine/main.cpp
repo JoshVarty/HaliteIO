@@ -164,7 +164,7 @@ std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 10;            //number of optimization rounds for a single rollout
-int mini_batch_number = 32;         //batch size for optimization
+std::size_t mini_batch_number = 32;         //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
 int maximum_timesteps = 1200;       //Maximum timesteps over which to generate a rollout
@@ -425,6 +425,7 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
         if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
             std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
 
+
             game.rank_players();
 
             long winningId = -1;
@@ -434,6 +435,17 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
                     winningId = stats.player_id.value;
                 }
             }
+
+            std::cout << std::endl;
+            std::cout << "Winner: " << winningId << std::endl;
+            std::cout << std::endl;
+            std::cout << "Player 1 total mined: " << game.game_statistics.player_statistics[0].total_mined << std::endl;
+            std::cout << "Player 1 total production: " << game.game_statistics.player_statistics[0].total_production << std::endl;
+            std::cout << "Player 1 total bonus: " << game.game_statistics.player_statistics[0].total_bonus<< std::endl;
+            std::cout << "Player 2 total mined: " << game.game_statistics.player_statistics[1].total_mined << std::endl;
+            std::cout << "Player 2 total production: " << game.game_statistics.player_statistics[1].total_production << std::endl;
+            std::cout << "Player 2 total bonus: " << game.game_statistics.player_statistics[1].total_bonus<< std::endl;
+            std::cout << std::endl;
 
             if(winningId == -1) {
                 std::cout << "There was a problem, we didn't find a winning player...";
@@ -533,7 +545,8 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::unordered_map<long, std:
 void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 
     //TODO: Some kind of batching mechanism
-    Batcher batcher(this->mini_batch_number, processed_rollout);
+
+    Batcher batcher(std::min(this->mini_batch_number, processed_rollout.size()), processed_rollout);
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
         batcher.shuffle();
@@ -598,7 +611,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.000001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0000001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
