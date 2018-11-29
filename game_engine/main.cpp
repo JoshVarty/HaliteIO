@@ -167,7 +167,7 @@ int learningRounds = 5;             //number of optimization rounds for a single
 std::size_t mini_batch_number = 32; //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
-int maximum_timesteps = 1200;       //Maximum timesteps over which to generate a rollout
+int minimum_rollout_size = 1000;    //Minimum number of rollouts we accumulate before training the network
 
 frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
@@ -328,231 +328,224 @@ GameResult getWinner(hlt::PlayerStatistics p1, hlt::PlayerStatistics other){
     }
 }
 
-std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
+std::vector<RolloutItem> generate_rollouts() {
 
-    std::unordered_map<long, std::vector<RolloutItem>> rollouts;
+    std::vector<RolloutItem> rollouts;
 
-    //Reset environment for new game
-    int map_width = 64;
-    int map_height = 64;
-    int numPlayers = 2;
-    hlt::mapgen::MapType type = hlt::mapgen::MapType::Fractal;
-    auto seed = static_cast<unsigned int>(time(nullptr));
-    hlt::mapgen::MapParameters map_parameters{type, seed, map_width, map_height, numPlayers};
-    hlt::Map map(map_width, map_height);
-    hlt::mapgen::Generator::generate(map, map_parameters);
-    hlt::GameStatistics game_statistics;
-    hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
-    hlt::Halite game(map, game_statistics, replay);
+    while(rollouts.size() < minimum_rollout_size) {
 
-    game.initialize_game(numPlayers);
+        std::unordered_map<long, std::vector<RolloutItem>> rolloutsForCurrentGame;
 
-    const auto &constants = hlt::Constants::get();
+        //Reset environment for new game
+        int map_width = 64;
+        int map_height = 64;
+        int numPlayers = 2;
+        hlt::mapgen::MapType type = hlt::mapgen::MapType::Fractal;
+        auto seed = static_cast<unsigned int>(time(nullptr));
+        hlt::mapgen::MapParameters map_parameters{type, seed, map_width, map_height, numPlayers};
+        hlt::Map map(map_width, map_height);
+        hlt::mapgen::Generator::generate(map, map_parameters);
+        hlt::GameStatistics game_statistics;
+        hlt::Replay replay{game_statistics, map_parameters.num_players, map_parameters.seed, map};
+        hlt::Halite game(map, game_statistics, replay);
 
-    game.turn_number = 1;
-    while(true) {
+        game.initialize_game(numPlayers);
 
-        // Add state of entities at start of turn.
-        // First, update inspiration flags, so they can be used for
-        // movement/mining and so they are part of the replay.
-        game.update_inspiration();
+        const auto &constants = hlt::Constants::get();
 
-        std::map<long, std::vector<AgentCommand>> commands;
+        game.turn_number = 1;
+        while(true) {
 
-        auto &players = game.store.players;
-        int offset = 0;
+            // Add state of entities at start of turn.
+            // First, update inspiration flags, so they can be used for
+            // movement/mining and so they are part of the replay.
+            game.update_inspiration();
 
-        std::unordered_map<long, RolloutItem> rolloutCurrentTurnByEntityId;
+            std::map<long, std::vector<AgentCommand>> commands;
 
-        for (auto playerPair : players) {
+            auto &players = game.store.players;
+            int offset = 0;
 
-            auto id = playerPair.first.value;
-            std::vector<AgentCommand> playerCommands;
-            auto player = playerPair.second;
+            std::unordered_map<long, RolloutItem> rolloutCurrentTurnByEntityId;
 
-            for(auto entityPair : player.entities) {
-                auto entityId = entityPair.first;
-                auto location = entityPair.second;
+            for (auto playerPair : players) {
 
-                auto frames = parseGridIntoSlices(0, game);
+                auto id = playerPair.first.value;
+                std::vector<AgentCommand> playerCommands;
+                auto player = playerPair.second;
 
-                auto entity = game.store.get_entity(entityId);
-                int no_of_rows = 64;
-                int no_of_cols = 64;
+                for(auto entityPair : player.entities) {
+                    auto entityId = entityPair.first;
+                    auto location = entityPair.second;
 
-                //Zero out all cells except for where our current unit is
-                auto entityLocationFrame = frames.state[10];
-                for(int i = 0; i < 64; i++) {
-                    for(int j = 0; j < 64; j++) {
-                        entityLocationFrame[i][j] = 0;
+                    auto frames = parseGridIntoSlices(0, game);
+
+                    auto entity = game.store.get_entity(entityId);
+                    int no_of_rows = 64;
+                    int no_of_cols = 64;
+
+                    //Zero out all cells except for where our current unit is
+                    auto entityLocationFrame = frames.state[10];
+                    for(int i = 0; i < 64; i++) {
+                        for(int j = 0; j < 64; j++) {
+                            entityLocationFrame[i][j] = 0;
+                        }
                     }
-                }
-                entityLocationFrame[offset + location.y][offset + location.x] = 1;
+                    entityLocationFrame[offset + location.y][offset + location.x] = 1;
 
-                //Set entire frame to the score of the current unit
-                auto entityEnergyFrame = frames.state[11];
-                float energy = entity.energy;
-                for(int i = 0; i < 64; i++) {
-                    for(int j = 0; j < 64; j++) {
-                        entityEnergyFrame[i][j] = energy;
+                    //Set entire frame to the score of the current unit
+                    auto entityEnergyFrame = frames.state[11];
+                    float energy = entity.energy;
+                    for(int i = 0; i < 64; i++) {
+                        for(int j = 0; j < 64; j++) {
+                            entityEnergyFrame[i][j] = energy;
+                        }
                     }
+
+                    //TODO: Ask the neural network what to do now?
+                    auto state = torch::from_blob(frames.state, {12,64,64});
+
+                    //frames.debug_print();
+                    state = state.unsqueeze(0);
+                    torch::Tensor emptyAction;
+                    auto modelOutput = myModel.forward(state, emptyAction);
+                    auto actionIndex = modelOutput.action.item<int64_t>();
+
+                    //Create and story rollout
+                    RolloutItem current_rollout;
+                    current_rollout.state = frames;
+                    current_rollout.value = modelOutput.value.item<float>();
+                    current_rollout.action = actionIndex;
+                    current_rollout.log_prob = modelOutput.log_prob.item<float>();
+                    current_rollout.step = game.turn_number;
+                    current_rollout.playerId = player.id.value;
+                    current_rollout.reward = 0;
+                    //This seems backwards but we represent "Done" as 0 and "Not done" as 1
+                    current_rollout.done = 1;
+
+                    rolloutCurrentTurnByEntityId[entityId.value] = current_rollout;
+
+                    std::string command = unitCommands[actionIndex];
+                    playerCommands.push_back(AgentCommand(entityId.value, command));
                 }
 
-                //TODO: Ask the neural network what to do now?
-                auto state = torch::from_blob(frames.state, {12,64,64});
+                // auto energy = player.energy;
+                //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
+                auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
+                if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
+                    long factoryId = -1;
+                    std::string command = "spawn";
+                    playerCommands.push_back(AgentCommand(factoryId, command));
+                }
 
-                //frames.debug_print();
-                state = state.unsqueeze(0);
-                torch::Tensor emptyAction;
-                auto modelOutput = myModel.forward(state, emptyAction);
-                auto actionIndex = modelOutput.action.item<int64_t>();
-
-                //Create and story rollout
-                RolloutItem current_rollout;
-                current_rollout.state = frames;
-                current_rollout.value = modelOutput.value.item<float>();
-                current_rollout.action = actionIndex;
-                current_rollout.log_prob = modelOutput.log_prob.item<float>();
-                current_rollout.step = game.turn_number;
-                current_rollout.playerId = player.id.value;
-                current_rollout.reward = 0;
-                //This seems backwards but we represent "Done" as 0 and "Not done" as 1
-                current_rollout.done = 1;
-
-                rolloutCurrentTurnByEntityId[entityId.value] = current_rollout;
-
-                std::string command = unitCommands[actionIndex];
-                playerCommands.push_back(AgentCommand(entityId.value, command));
+                commands[id] = playerCommands;
             }
 
-            // auto energy = player.energy;
-            //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
-            auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
-            if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
-                long factoryId = -1;
-                std::string command = "spawn";
-                playerCommands.push_back(AgentCommand(factoryId, command));
-            }
+            game.process_turn(commands);
 
-            commands[id] = playerCommands;
-        }
-
-        game.process_turn(commands);
-
-         //Add current rollouts to list
-        for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
-            auto entityId = rolloutKeyValue.first;
-            auto rolloutItem = rolloutKeyValue.second;
-            rollouts[entityId].push_back(rolloutItem);
-        }
-
-        game.turn_number = game.turn_number + 1;
-        if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
-            std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
-
-            auto winningId = -1;
-            auto winner = getWinner(game.game_statistics.player_statistics[0], game.game_statistics.player_statistics[1]);
-            if (winner == GameResult::Player1) {
-                winningId = 0;
-            }
-            else if (winner == GameResult::Player2) {
-                winningId = 1;
-            }
-
-            std::cout << std::endl;
-            std::cout << "Winner: " << winningId << std::endl;
-            std::cout << std::endl;
-            auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
-            auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
-            std::cout << "Player 1 total mined: " << p1TurnProductions[p1TurnProductions.size() - 1] << std::endl;
-            std::cout << "Player 2 total mined: " << p2TurnProductions[p2TurnProductions.size() - 1] << std::endl;
-            std::cout << std::endl;
-
-            //If the game ended we have to correct the "rewards" and the "dones"
-            for(auto rolloutKeyValue : rollouts) {
+            //Add current rollouts to list
+            for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
                 auto entityId = rolloutKeyValue.first;
-                auto entityRollout = rolloutKeyValue.second;
-                auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
-
-                //This seems backwards but we represent "Done" as 0 and "Not done" as 1
-                lastRolloutItem.done = 0;
-                if(lastRolloutItem.playerId == winningId) {
-                    lastRolloutItem.reward = 1;
-                }
-                else {
-                    lastRolloutItem.reward = -1;
-                }
-
-                rollouts[entityId][entityRollout.size() - 1] = lastRolloutItem;
-                rollouts[entityId].push_back(lastRolloutItem);
+                auto rolloutItem = rolloutKeyValue.second;
+                rolloutsForCurrentGame[entityId].push_back(rolloutItem);
             }
 
-            break;
+            game.turn_number = game.turn_number + 1;
+            if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
+                std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
+
+                auto winningId = -1;
+                auto winner = getWinner(game.game_statistics.player_statistics[0], game.game_statistics.player_statistics[1]);
+                if (winner == GameResult::Player1) {
+                    winningId = 0;
+                }
+                else if (winner == GameResult::Player2) {
+                    winningId = 1;
+                }
+
+                std::cout << std::endl;
+                std::cout << "Winner: " << winningId << std::endl;
+                std::cout << std::endl;
+                auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
+                auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
+                std::cout << "Player 1 total mined: " << p1TurnProductions[p1TurnProductions.size() - 1] << std::endl;
+                std::cout << "Player 2 total mined: " << p2TurnProductions[p2TurnProductions.size() - 1] << std::endl;
+                std::cout << std::endl;
+
+                //If the game ended we have to correct the "rewards" and the "dones"
+                for(auto rolloutKeyValue : rolloutsForCurrentGame) {
+                    auto entityId = rolloutKeyValue.first;
+                    auto entityRollout = rolloutKeyValue.second;
+                    auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
+
+                    //This seems backwards but we represent "Done" as 0 and "Not done" as 1
+                    lastRolloutItem.done = 0;
+                    if(lastRolloutItem.playerId == winningId) {
+                        lastRolloutItem.reward = 1;
+                    }
+                    else {
+                        lastRolloutItem.reward = -1;
+                    }
+
+                    rolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
+                    rolloutsForCurrentGame[entityId].push_back(lastRolloutItem);
+
+                    rollouts.insert(rollouts.end(), rolloutsForCurrentGame[entityId].begin(), rolloutsForCurrentGame[entityId].end());
+                }
+
+                break;
+            }
         }
     }
 
     return rollouts;
 }
 
-std::vector<ProcessedRolloutItem> process_rollouts(std::unordered_map<long, std::vector<RolloutItem>> rollouts) {
+std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> rollouts) {
     std::vector<ProcessedRolloutItem> processed_rollouts;
 
-    for (auto keyValPair : rollouts) {
-        auto entityId = keyValPair.first;
-        auto entityRollout = keyValPair.second;
+    //Get last value
+    float advantage = 0;
+    auto currentReturn = rollouts[rollouts.size() - 1].value;
 
-        std::vector<ProcessedRolloutItem> processedRollout;
+    float advantage_mean;
 
-        //The agent didn't live long enough for us to calculate proper advantages
-        if (entityRollout.size() < 2) {
-            continue;
-        }
+    for(int i = rollouts.size() - 2;  i >= 0; i--) {
+        auto rolloutItem = rollouts[i];
+        auto nextValue = rollouts[i + 1].value;
 
-        //Get last value
-        float advantage = 0;
-        auto currentReturn = entityRollout[entityRollout.size() - 1].value;
+        currentReturn = rolloutItem.reward + this->discount_rate * rolloutItem.done * currentReturn;
+        auto td_error = currentReturn + this->discount_rate * rolloutItem.done * nextValue - rolloutItem.value;
+        advantage = advantage * this->tau * this->discount_rate * rolloutItem.done + td_error;
 
-        float advantage_mean;
+        ProcessedRolloutItem processedRolloutItem;
+        processedRolloutItem.state = rolloutItem.state;
+        processedRolloutItem.action = rolloutItem.action;
+        processedRolloutItem.log_prob = rolloutItem.log_prob;
+        processedRolloutItem.returns = currentReturn;
+        processedRolloutItem.advantage = advantage;
+        processed_rollouts.push_back(processedRolloutItem);
 
-        for(int i = entityRollout.size() - 2; i >= 0; i--) {
-            auto rolloutItem = entityRollout[i];
-            auto nextValue = entityRollout[i + 1].value;
+        advantage_mean = advantage_mean + advantage;   //Accumulate all advantages
+    }
 
-            currentReturn = rolloutItem.reward + this->discount_rate * rolloutItem.done * currentReturn;
-            auto td_error = currentReturn + this->discount_rate * rolloutItem.done * nextValue - rolloutItem.value;
-            advantage = advantage * this->tau * this->discount_rate * rolloutItem.done + td_error;
+    //Calculate mean from sum of advantages
+    advantage_mean = advantage_mean / processed_rollouts.size();
 
-            ProcessedRolloutItem processedRolloutItem;
-            processedRolloutItem.state = rolloutItem.state;
-            processedRolloutItem.action = rolloutItem.action;
-            processedRolloutItem.log_prob = rolloutItem.log_prob;
-            processedRolloutItem.returns = currentReturn;
-            processedRolloutItem.advantage = advantage;
-            processedRollout.push_back(processedRolloutItem);
+    float advantage_std;
+    for(int i = 0; i < processed_rollouts.size(); i++) {
+        auto rolloutItem = processed_rollouts[i];
+        auto differenceFromMean = (rolloutItem.advantage - advantage_mean);
+        advantage_std = advantage_std + (differenceFromMean * differenceFromMean);
+    }
 
-            advantage_mean = advantage_mean + advantage;   //Accumulate all advantages
-        }
+    //Calculate std from sum of squared differences
+    advantage_std = advantage_std / processed_rollouts.size();
+    advantage_std = sqrt(advantage_std);
 
-        //Calculate mean from sum of advantages
-        advantage_mean = advantage_mean / processedRollout.size();
-
-        float advantage_std;
-        for(int i = 0; i < processedRollout.size(); i++) {
-            auto rolloutItem = processedRollout[i];
-            auto differenceFromMean = (rolloutItem.advantage - advantage_mean);
-            advantage_std = advantage_std + (differenceFromMean * differenceFromMean);
-        }
-
-        //Calculate std from sum of squared differences
-        advantage_std = advantage_std / (entityRollout.size() - 1);
-        advantage_std = sqrt(advantage_std);
-
-        //Normalize all of the advantages
-        for(auto processedRolloutItem : processedRollout) {
-            processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
-        }
-
-        processed_rollouts.insert(processed_rollouts.end(), processedRollout.begin(), processedRollout.end());
+    //Normalize all of the advantages
+    for(auto processedRolloutItem : processed_rollouts) {
+        processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
     }
 
     return processed_rollouts;
