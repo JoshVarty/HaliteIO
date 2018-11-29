@@ -28,8 +28,12 @@ struct RolloutItem {
     float log_prob;
     float reward;
     int done;
-    int step;
     long playerId;
+};
+
+struct CompleteRolloutResult {
+    std::vector<RolloutItem> rollouts;
+    std::vector<long> scores;
 };
 
 struct ProcessedRolloutItem {
@@ -136,6 +140,7 @@ public:
             //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
             //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
             selected_action = action_probabilities.multinomial(1, true);
+            //std::cout << action_probabilities << std::endl;
         }
         else {
             selected_action = selected_action.to(device);
@@ -328,9 +333,11 @@ GameResult getWinner(hlt::PlayerStatistics p1, hlt::PlayerStatistics other){
     }
 }
 
-std::vector<RolloutItem> generate_rollouts() {
+CompleteRolloutResult generate_rollouts() {
 
+    CompleteRolloutResult result;
     std::vector<RolloutItem> rollouts;
+    std::vector<long> scores;
 
     while(rollouts.size() < minimum_rollout_size) {
 
@@ -417,7 +424,6 @@ std::vector<RolloutItem> generate_rollouts() {
                     current_rollout.value = modelOutput.value.item<float>();
                     current_rollout.action = actionIndex;
                     current_rollout.log_prob = modelOutput.log_prob.item<float>();
-                    current_rollout.step = game.turn_number;
                     current_rollout.playerId = player.id.value;
                     current_rollout.reward = 0;
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
@@ -468,9 +474,14 @@ std::vector<RolloutItem> generate_rollouts() {
                 std::cout << std::endl;
                 auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
                 auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
-                std::cout << "Player 1 total mined: " << p1TurnProductions[p1TurnProductions.size() - 1] << std::endl;
-                std::cout << "Player 2 total mined: " << p2TurnProductions[p2TurnProductions.size() - 1] << std::endl;
+                auto player1Score = p1TurnProductions[p1TurnProductions.size() - 1];
+                auto player2Score = p2TurnProductions[p2TurnProductions.size() - 1];
+                std::cout << "Player 1 total mined: " << player1Score << std::endl;
+                std::cout << "Player 2 total mined: " << player2Score << std::endl;
                 std::cout << std::endl;
+
+                scores.push_back(player1Score);
+                scores.push_back(player2Score);
 
                 //If the game ended we have to correct the "rewards" and the "dones"
                 for(auto rolloutKeyValue : rolloutsForCurrentGame) {
@@ -498,7 +509,10 @@ std::vector<RolloutItem> generate_rollouts() {
         }
     }
 
-    return rollouts;
+    //Return scores along with rollouts
+    result.rollouts = rollouts;
+    result.scores = scores;
+    return result;
 }
 
 std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> rollouts) {
@@ -515,7 +529,7 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
         auto nextValue = rollouts[i + 1].value;
 
         currentReturn = rolloutItem.reward + this->discount_rate * rolloutItem.done * currentReturn;
-        auto td_error = currentReturn + this->discount_rate * rolloutItem.done * nextValue - rolloutItem.value;
+        auto td_error = rolloutItem.reward + this->discount_rate * rolloutItem.done * nextValue - rolloutItem.value;
         advantage = advantage * this->tau * this->discount_rate * rolloutItem.done + td_error;
 
         ProcessedRolloutItem processedRolloutItem;
@@ -545,7 +559,7 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
 
     //Normalize all of the advantages
     for(auto processedRolloutItem : processed_rollouts) {
-        processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
+        processedRolloutItem.advantage = (processedRolloutItem.advantage) / advantage_std;
     }
 
     return processed_rollouts;
@@ -593,14 +607,18 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
             auto ratio = (log_probs - torch::from_blob(sampled_log_probs_old, { batchSize, 1}).to(device)).exp();
             auto obj = ratio * sampled_advantages_tensor;
             auto obj_clipped = ratio.clamp(1.0 - ppo_clip, 1.0 + ppo_clip) * sampled_advantages_tensor;
-            auto policy_loss = -torch::min(obj, obj_clipped).mean({0});
+            auto policy_loss = -torch::min(obj, obj_clipped).mean();
+
+            auto policy_loss_float = policy_loss.item<float>();
 
             // TODO: Why do they do 0.5?
             auto sampled_returns_tensor = torch::from_blob(sampled_returns, {batchSize, 1}).to(device);
             auto value_loss = 0.5 * (sampled_returns_tensor - values).pow(2).mean();
+            auto value_loss_float = value_loss.item<float>();
 
             optimizer.zero_grad();
             auto totalLoss = policy_loss + value_loss;
+            //std::cout << totalLoss << std::endl;
             totalLoss.backward();
             //TODO: Can we use gradient clipping?
             optimizer.step();
@@ -618,7 +636,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0000001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.000001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
@@ -631,14 +649,16 @@ public:
     }
 
     double step() {
-        auto rollouts = generate_rollouts();
-        auto processed_rollout = process_rollouts(rollouts);
+        std::vector<long> scores;
+        auto rolloutResult = generate_rollouts();
+        scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
+
+        auto processed_rollout = process_rollouts(rolloutResult.rollouts);
         // train_network
         train_network(processed_rollout);
 
-        //TODO:
-        //return average score?
-        return 0.0;
+        auto average = std::accumulate(scores.begin(), scores.end(), 0.0)/scores.size(); 
+        return average;
     }
 };
 
@@ -665,7 +685,11 @@ void ppo(Agent myAgent, uint numEpisodes) {
 
         if (i % 100 == 0) {
             //Every 100 episodes, display the mean reward
-            std::cout << "Mean at step: " << i << ": " << mean;
+            std::cout << std::endl;
+            std::cout << std::endl;
+            std::cout << "~~~~~~~~~~~Mean at step: " << i << ": " << mean;
+            std::cout << std::endl;
+            std::cout << std::endl;
         }
 
         //TODO: If network improves, save it.
