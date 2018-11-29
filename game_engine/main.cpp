@@ -69,7 +69,7 @@ std::vector<ProcessedRolloutItem>::iterator batchEnd;
         std::vector<ProcessedRolloutItem> batch;
         batch.insert(batch.end(), batchStart, batchEnd);
 
-        batchStart = batchEnd; //TODO: Does this copy?
+        batchStart = batchEnd; 
 
         //Advance batchEnd to either the end of the next batch or
         //to the end of the data, whichever comes first
@@ -164,7 +164,7 @@ std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 10;            //number of optimization rounds for a single rollout
-std::size_t mini_batch_number = 32;         //batch size for optimization
+std::size_t mini_batch_number = 32; //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
 int maximum_timesteps = 1200;       //Maximum timesteps over which to generate a rollout
@@ -320,12 +320,6 @@ std::unordered_map<long, std::vector<RolloutItem>> generate_rollouts() {
 
     game.turn_number = 1;
     while(true) {
-
-        //Logging::set_turn_number(game.turn_number);
-        //game.logs.set_turn_number(game.turn_number);
-        // Logging::log([turn_number = game.turn_number]() {
-        //     return "Starting turn " + std::to_string(turn_number);
-        // }, Logging::Level::Debug);
 
         // Add state of entities at start of turn.
         // First, update inspiration flags, so they can be used for
@@ -543,8 +537,6 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::unordered_map<long, std:
 }
 
 void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
-
-    //TODO: Some kind of batching mechanism
 
     Batcher batcher(std::min(this->mini_batch_number, processed_rollout.size()), processed_rollout);
     for(int i = 0; i < this->learningRounds; i++) {
