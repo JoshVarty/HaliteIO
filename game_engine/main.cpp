@@ -140,7 +140,8 @@ public:
             //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
             //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
             selected_action = action_probabilities.multinomial(1, true);
-            //std::cout << action_probabilities << std::endl;
+            // std::cout << a << std::endl;
+            // std::cout << action_probabilities << std::endl;
         }
         else {
             selected_action = selected_action.to(device);
@@ -636,7 +637,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.000001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0000001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
