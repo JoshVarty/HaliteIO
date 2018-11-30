@@ -403,7 +403,7 @@ bool HaliteImpl::game_ended() const {
         bool can_play = player_can_play(player);
         if (player.can_play && !can_play) {
             //Logging::log("player has insufficient resources to continue", Logging::Level::Info, player.id);
-            std::cout << "player has insufficient resources to continue: " << player.id.value << std::endl;
+            //std::cout << "player has insufficient resources to continue: " << player.id.value << std::endl;
             player.can_play = false;
         }
         if (!player.terminated && can_play) {
@@ -508,7 +508,7 @@ void HaliteImpl::rank_players() {
 
 void HaliteImpl::kill_player(const Player::id_type &player_id) {
     //Logging::log("Killing player", Logging::Level::Warning, player_id);
-    std::cout << "Killing player: " << player_id << std::endl;
+    //std::cout << "Killing player: " << player_id << std::endl;
     auto &player = game.store.get_player(player_id);
     player.terminated = true;
     //game.networking.kill_player(player);
@@ -547,11 +547,11 @@ void HaliteImpl::handle_error(std::unordered_set<Player::id_type> &offenders,
     // Log the error information.
     if (error->ignored) {
         //Logging::log(message, Logging::Level::Warning, player_id);
-        std::cout << message << " " << player_id << std::endl;
+        //std::cout << message << " " << player_id << std::endl;
         //game.logs.log(player_id, message, PlayerLog::Level::Warning);
     } else {
         //Logging::log(message, Logging::Level::Error, player_id);
-        std::cout << message << " " << player_id << std::endl;
+        //std::cout << message << " " << player_id << std::endl;
         offenders.emplace(player_id);
         //game.logs.log(player_id, message, PlayerLog::Level::Error);
     }
