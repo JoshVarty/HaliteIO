@@ -30,7 +30,7 @@ const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames
 const int GAME_WIDTH = 32;                //The number of NxN input frames to our neural network
 const int GAME_HEIGHT = 32;                //The number of NxN input frames to our neural network
 
-struct frame {
+struct Frame {
 public:
     float state[NUMBER_OF_FRAMES][GAME_HEIGHT][GAME_WIDTH] = {};
 
@@ -56,7 +56,7 @@ struct ModelOutput {
 };
 
 struct RolloutItem {
-    frame state;
+    Frame state;
     long action;
     float value;
     float log_prob;
@@ -72,7 +72,7 @@ struct CompleteRolloutResult {
 };
 
 struct ProcessedRolloutItem {
-    frame state;
+    Frame state;
     long action;
     float log_prob;
     float returns;
@@ -209,7 +209,7 @@ double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
 int minimum_rollout_size = 2000;    //Minimum number of rollouts we accumulate before training the network
 
-frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
+Frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
     int no_of_rows = GAME_HEIGHT;
     int no_of_cols = GAME_WIDTH;
@@ -234,7 +234,7 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
     }
 
     //Board info
-    frame myFrame;
+    Frame myFrame;
     auto frameData = myFrame.state;
     auto halite_locations = frameData[0];   // Range from [-0.5, ~0.5]
     auto steps_remaining = frameData[1];    // Range from [-0.5, 0.5]
@@ -612,7 +612,7 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
         batcher.shuffle();
-        frame sampled_states[this->mini_batch_number];
+        Frame sampled_states[this->mini_batch_number];
         float sampled_actions[this->mini_batch_number];
         float sampled_log_probs_old[this->mini_batch_number];
         float sampled_returns[this->mini_batch_number];
