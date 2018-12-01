@@ -11,8 +11,9 @@ __pycache__/
 docs/
 hlt/
 replays/
+CMakeFiles/*
 */CMakeFiles/*
-*/Makefile
+Makefile
 */halite
 *.hlt
 CMakeCache.txt
@@ -20,6 +21,7 @@ CMakeCache.txt
 detect_cuda_compute_capabilities.cpp
 detect_cuda_version.cc
 *.pt
+*.cmake
 
 # Distribution / packaging
 .Python
