@@ -30,6 +30,24 @@ const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames
 const int GAME_WIDTH = 32;                //The number of NxN input frames to our neural network
 const int GAME_HEIGHT = 32;                //The number of NxN input frames to our neural network
 
+struct frame {
+public:
+    float state[NUMBER_OF_FRAMES][GAME_HEIGHT][GAME_WIDTH] = {};
+
+    void debug_print() {
+        for(int i = 0; i < NUMBER_OF_FRAMES; i++){
+            std::cout << std::endl << std::endl << "FRAME: " << i << std::endl;
+
+            for(int j = 0; j < GAME_HEIGHT; j++) {
+                std::cout << std::endl << j << ": \t";
+                for(int k = 0; k < GAME_WIDTH; k++){
+                    std::cout << state[i][j][k] << " ";
+                }
+            }
+        }
+    }
+};
+
 
 struct ModelOutput {
     at::Tensor action;
@@ -186,10 +204,10 @@ std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 5;             //number of optimization rounds for a single rollout
-std::size_t mini_batch_number = 32; //batch size for optimization
+std::size_t mini_batch_number = 128; //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
-int minimum_rollout_size = 1000;    //Minimum number of rollouts we accumulate before training the network
+int minimum_rollout_size = 2000;    //Minimum number of rollouts we accumulate before training the network
 
 frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
@@ -498,8 +516,8 @@ CompleteRolloutResult generate_rollouts() {
                 auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
                 auto player1Score = p1TurnProductions[p1TurnProductions.size() - 1];
                 auto player2Score = p2TurnProductions[p2TurnProductions.size() - 1];
-                std::cout << "Player 1 total mined: " << player1Score << std::endl;
-                std::cout << "Player 2 total mined: " << player2Score << std::endl;
+                // std::cout << "Player 1 total mined: " << player1Score << std::endl;
+                // std::cout << "Player 2 total mined: " << player2Score << std::endl;
                 // std::cout << std::endl;
 
                 scores.push_back(player1Score);
