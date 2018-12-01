@@ -714,6 +714,7 @@ public:
 
 void ppo(Agent myAgent, uint numEpisodes) {
     auto bestMean = -1;
+    auto bestNumSteps = -1;
     std::vector<double> allScores;
     std::vector<double> allGameSteps;
     std::deque<double> lastHundredScores;
@@ -743,9 +744,11 @@ void ppo(Agent myAgent, uint numEpisodes) {
             std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
 
             //If our network is improving, save the current weights
-            if(meanScore > bestMean) {
+            if(meanGameSteps > bestNumSteps || meanScore > bestMean) {
                 //TODO: Why do I have to save the weights one-by-one...
                 bestMean = meanScore;
+                bestNumSteps = meanGameSteps;
+                std::cout << "New Best. Saving model..." << std::endl;
                 //We have to move the model to CPU before saving
                 myAgent.myModel.to(torch::kCPU);
                 torch::save(myAgent.myModel.conv1, "conv1.pt");
