@@ -768,12 +768,19 @@ int main(int argc, char *argv[]) {
 
     Agent agent;
 
-    agent.myModel.to(torch::kCPU);
-    torch::load(agent.myModel.conv1, "conv1.pt");
-    torch::load(agent.myModel.conv2, "conv2.pt");
-    torch::load(agent.myModel.fc1, "fc1.pt");
-    torch::load(agent.myModel.fc2, "fc2.pt");
-    torch::load(agent.myModel.fc3, "fc3.pt");
+    try {
+        agent.myModel.to(torch::kCPU);
+        torch::load(agent.myModel.conv1, "conv1.pt");
+        torch::load(agent.myModel.conv2, "conv2.pt");
+        torch::load(agent.myModel.fc1, "fc1.pt");
+        torch::load(agent.myModel.fc2, "fc2.pt");
+        torch::load(agent.myModel.fc3, "fc3.pt");
+    }
+    catch (const std::exception& e) {
+        std::cout << "Could not load models from disk. Starting from scratch" << std::endl;
+        agent.myModel.to(torch::kCUDA);
+    }
+
     agent.myModel.to(torch::kCUDA);
     ppo(agent, 100000);
 
