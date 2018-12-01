@@ -16,9 +16,16 @@
 #include <torch/torch.h>
 
 
+struct StepResult {
+    double meanScore;
+    double meanSteps;
+};
+
+
 const float MAX_HALITE_ON_MAP = 1000;           //The maximum natural drop of halite on the map
 const float MAX_HALITE_ON_SHIP = 1000;          //The maximum halite a ship can hold
 const float MAX_SCORE_APPROXIMATE = 50000;     //A rough estimate of a "Max" score that we'll use for scaling our player's scores
+
 
 struct ModelOutput {
     at::Tensor action;
@@ -39,6 +46,7 @@ struct RolloutItem {
 struct CompleteRolloutResult {
     std::vector<RolloutItem> rollouts;
     std::vector<long> scores;
+    std::vector<long> gameSteps;
 };
 
 struct ProcessedRolloutItem {
@@ -145,8 +153,8 @@ public:
             //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
             //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
             selected_action = action_probabilities.multinomial(1, true);
-            //std::cout << a << std::endl;
-            //std::cout << action_probabilities << std::endl;
+            // std::cout << a << std::endl;
+            // std::cout << action_probabilities << std::endl;
         }
         else {
             selected_action = selected_action.to(device);
@@ -343,6 +351,7 @@ CompleteRolloutResult generate_rollouts() {
     CompleteRolloutResult result;
     std::vector<RolloutItem> rollouts;
     std::vector<long> scores;
+    std::vector<long> gameSteps;
 
     while(rollouts.size() < minimum_rollout_size) {
 
@@ -463,7 +472,8 @@ CompleteRolloutResult generate_rollouts() {
 
             game.turn_number = game.turn_number + 1;
             if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
-                std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
+                //std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
+                gameSteps.push_back(game.turn_number);
 
                 auto winningId = -1;
                 auto winner = getWinner(game.game_statistics.player_statistics[0], game.game_statistics.player_statistics[1]);
@@ -473,17 +483,22 @@ CompleteRolloutResult generate_rollouts() {
                 else if (winner == GameResult::Player2) {
                     winningId = 1;
                 }
+                else {
+                    //If there is a tie we don't care about this rollout
+                    std::cout << "Tie. We're ignoring this game" << std::endl;
+                    break;
+                }
 
-                std::cout << std::endl;
-                std::cout << "Winner: " << winningId << std::endl;
-                std::cout << std::endl;
+                // std::cout << std::endl;
+                // std::cout << "Winner: " << winningId << std::endl;
+                // std::cout << std::endl;
                 auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
                 auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
                 auto player1Score = p1TurnProductions[p1TurnProductions.size() - 1];
                 auto player2Score = p2TurnProductions[p2TurnProductions.size() - 1];
-                std::cout << "Player 1 total mined: " << player1Score << std::endl;
-                std::cout << "Player 2 total mined: " << player2Score << std::endl;
-                std::cout << std::endl;
+                // std::cout << "Player 1 total mined: " << player1Score << std::endl;
+                // std::cout << "Player 2 total mined: " << player2Score << std::endl;
+                // std::cout << std::endl;
 
                 scores.push_back(player1Score);
                 scores.push_back(player2Score);
@@ -517,6 +532,7 @@ CompleteRolloutResult generate_rollouts() {
     //Return scores along with rollouts
     result.rollouts = rollouts;
     result.scores = scores;
+    result.gameSteps = gameSteps;
     return result;
 }
 
@@ -564,7 +580,7 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
 
     //Normalize all of the advantages
     for(auto processedRolloutItem : processed_rollouts) {
-        processedRolloutItem.advantage = (processedRolloutItem.advantage) / advantage_std;
+        processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
     }
 
     return processed_rollouts;
@@ -630,7 +646,7 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
         }
     }
 
-    std::cout << "Finished learning step" << std::endl;
+    //std::cout << "Finished learning step" << std::endl;
 }
 
 public:
@@ -641,7 +657,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.000001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0000001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
@@ -653,60 +669,79 @@ public:
         device = torch::Device(device_type);
     }
 
-    double step() {
+    StepResult step() {
         std::vector<long> scores;
+        std::vector<long> gameSteps;
+
         auto rolloutResult = generate_rollouts();
         scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
+        gameSteps.insert(gameSteps.end(), rolloutResult.gameSteps.begin(), rolloutResult.gameSteps.end());
 
         auto processed_rollout = process_rollouts(rolloutResult.rollouts);
         // train_network
         train_network(processed_rollout);
 
-        auto average = std::accumulate(scores.begin(), scores.end(), 0.0)/scores.size(); 
-        return average;
+        StepResult result;
+        result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 
+        result.meanSteps = std::accumulate(gameSteps.begin(), gameSteps.end(), 0.0) / gameSteps.size();
+
+        return result;
     }
 };
 
 
 
 void ppo(Agent myAgent, uint numEpisodes) {
+    auto bestMean = -1;
     std::vector<double> allScores;
+    std::vector<double> allGameSteps;
     std::deque<double> lastHundredScores;
+    std::deque<double> lastHundredSteps;
 
-    for (uint i = 1; i < numEpisodes + 1; i++){
+    for (uint i = 1; i < numEpisodes + 1; i++) {
 
-        double current_score = myAgent.step();
-        allScores.push_back(current_score);
-        //Keep track of the last 100 scores
-        lastHundredScores.push_back(current_score);
-        if(lastHundredScores.size() > 100) {
+        StepResult result = myAgent.step();
+        allScores.push_back(result.meanScore);
+        allGameSteps.push_back(result.meanSteps);
+        //Keep track of the last 10 scores
+        lastHundredScores.push_back(result.meanScore);
+        lastHundredSteps.push_back(result.meanSteps);
+        if(lastHundredScores.size() > 10) {
             lastHundredScores.pop_front();
         }
-
-        double mean = 0;
-        for (uint j = 0; j < lastHundredScores.size(); j++){
-            mean += 0.01 * lastHundredScores[j];
+        if(lastHundredSteps.size() > 10) {
+            lastHundredSteps.pop_front();
         }
 
-        if (i % 100 == 0) {
-            //Every 100 episodes, display the mean reward
-            std::cout << std::endl;
-            std::cout << std::endl;
-            std::cout << "~~~~~~~~~~~Mean at step: " << i << ": " << mean;
-            std::cout << std::endl;
-            std::cout << std::endl;
-        }
+        if (i % 10 == 0) {
+            double meanScore = std::accumulate(lastHundredScores.begin(), lastHundredScores.end(), 0.0) / lastHundredScores.size();
+            double meanGameSteps = std::accumulate(lastHundredSteps.begin(), lastHundredSteps.end(), 0.0) / lastHundredSteps.size();
 
-        //TODO: If network improves, save it.
+            //Every 10 episodes, display the mean reward
+            std::cout << "Mean score at step: " << i << ": " << meanScore << std::endl;
+            std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
+
+            //On the first check, just assign the current mean to bestmean
+            if(bestMean == -1){
+                bestMean = meanScore;
+            }
+            else if(meanScore > bestMean) {
+                //TODO: Why do I have to save the weights one-by-one...
+                torch::save(myAgent.myModel.conv1, "conv1.pt");
+                torch::save(myAgent.myModel.conv2, "conv2.pt");
+                torch::save(myAgent.myModel.fc1, "fc1.pt");
+                torch::save(myAgent.myModel.fc2, "fc2.pt");
+                torch::save(myAgent.myModel.fc3, "fc3.pt");
+            }
+        }
     }
 }
-
 
 
 int main(int argc, char *argv[]) {
 
     Agent agent;
-    ppo(agent, 500);
+    ppo(agent, 10000);
 
     return 0;
 }
