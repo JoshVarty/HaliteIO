@@ -477,6 +477,11 @@ CompleteRolloutResult generate_rollouts() {
                 else if (winner == GameResult::Player2) {
                     winningId = 1;
                 }
+                else {
+                    //If there is a tie we don't care about this rollout
+                    std::cout << "Tie. We're ignoring this game" << std::endl;
+                    break;
+                }
 
                 // std::cout << std::endl;
                 // std::cout << "Winner: " << winningId << std::endl;
@@ -569,7 +574,7 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
 
     //Normalize all of the advantages
     for(auto processedRolloutItem : processed_rollouts) {
-        processedRolloutItem.advantage = (processedRolloutItem.advantage) / advantage_std;
+        processedRolloutItem.advantage = (processedRolloutItem.advantage - advantage_mean) / advantage_std;
     }
 
     return processed_rollouts;
@@ -681,6 +686,7 @@ public:
 
 
 void ppo(Agent myAgent, uint numEpisodes) {
+    auto bestMean = -1;
     std::vector<double> allScores;
     std::vector<double> allGameSteps;
     std::deque<double> lastHundredScores;
@@ -708,18 +714,28 @@ void ppo(Agent myAgent, uint numEpisodes) {
             //Every 10 episodes, display the mean reward
             std::cout << "Mean score at step: " << i << ": " << meanScore << std::endl;
             std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
-        }
 
-        //TODO: If network improves, save it.
+            //On the first check, just assign the current mean to bestmean
+            if(bestMean == -1){
+                bestMean = meanScore;
+            }
+            else if(meanScore > bestMean) {
+                //TODO: Why do I have to save the weights one-by-one...
+                torch::save(myAgent.myModel.conv1, "conv1.pt");
+                torch::save(myAgent.myModel.conv2, "conv2.pt");
+                torch::save(myAgent.myModel.fc1, "fc1.pt");
+                torch::save(myAgent.myModel.fc2, "fc2.pt");
+                torch::save(myAgent.myModel.fc3, "fc3.pt");
+            }
+        }
     }
 }
-
 
 
 int main(int argc, char *argv[]) {
 
     Agent agent;
-    ppo(agent, 500);
+    ppo(agent, 10000);
 
     return 0;
 }
