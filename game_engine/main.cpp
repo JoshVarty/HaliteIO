@@ -27,8 +27,8 @@ const float MAX_HALITE_ON_SHIP = 1000;          //The maximum halite a ship can 
 const float MAX_SCORE_APPROXIMATE = 50000;      //A rough estimate of a "Max" score that we'll use for scaling our player's scores
 
 const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames to our neural network
-const int GAME_WIDTH = 64;                //The number of NxN input frames to our neural network
-const int GAME_HEIGHT = 64;                //The number of NxN input frames to our neural network
+const int GAME_WIDTH = 32;                //The number of NxN input frames to our neural network
+const int GAME_HEIGHT = 32;                //The number of NxN input frames to our neural network
 
 
 struct ModelOutput {
@@ -118,7 +118,7 @@ public:
     ActorCriticNetwork()
     :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/3)),
         conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
-         fc1(32 * 60 * 60, 256),
+         fc1(32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4), 256),
          fc2(256, 6),           //Actor head
          fc3(256, 1),           //Critic head
          device(torch::Device(torch::kCPU))
@@ -147,7 +147,7 @@ public:
         x = conv1->forward(x);
         x = torch::relu(x);
         x = torch::relu(conv2->forward(x));
-        x = x.view({-1, 32 * 60 * 60});
+        x = x.view({-1, 32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4)});
         x = torch::relu(fc1->forward(x));
 
         auto a = fc2->forward(x);
