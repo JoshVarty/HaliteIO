@@ -139,7 +139,7 @@ public:
          fc1(32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4), 256),
          fc2(256, 6),           //Actor head
          fc3(256, 1),           //Critic head
-         device(torch::Device(torch::kCPU))
+         device(torch::Device(torch::kCUDA))
     {
         register_module("conv1", conv1);
         register_module("conv2", conv2);
@@ -742,18 +742,19 @@ void ppo(Agent myAgent, uint numEpisodes) {
             std::cout << "Mean score at step: " << i << ": " << meanScore << std::endl;
             std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
 
-            //On the first check, just assign the current mean to bestmean
-            if(bestMean == -1){
-                bestMean = meanScore;
-            }
-            else if(meanScore > bestMean) {
+            //If our network is improving, save the current weights
+            if(meanScore > bestMean) {
                 //TODO: Why do I have to save the weights one-by-one...
                 bestMean = meanScore;
+                //We have to move the model to CPU before saving
+                myAgent.myModel.to(torch::kCPU);
                 torch::save(myAgent.myModel.conv1, "conv1.pt");
                 torch::save(myAgent.myModel.conv2, "conv2.pt");
                 torch::save(myAgent.myModel.fc1, "fc1.pt");
                 torch::save(myAgent.myModel.fc2, "fc2.pt");
                 torch::save(myAgent.myModel.fc3, "fc3.pt");
+                //Now we move the model back to the GPU
+                myAgent.myModel.to(torch::kCUDA);
             }
         }
     }
@@ -763,11 +764,14 @@ void ppo(Agent myAgent, uint numEpisodes) {
 int main(int argc, char *argv[]) {
 
     Agent agent;
-    // torch::load(agent.myModel.conv1, "conv1.pt");
-    // torch::load(agent.myModel.conv2, "conv2.pt");
-    // torch::load(agent.myModel.fc1, "fc1.pt");
-    // torch::load(agent.myModel.fc2, "fc2.pt");
-    // torch::load(agent.myModel.fc3, "fc3.pt");
+
+    agent.myModel.to(torch::kCPU);
+    torch::load(agent.myModel.conv1, "conv1.pt");
+    torch::load(agent.myModel.conv2, "conv2.pt");
+    torch::load(agent.myModel.fc1, "fc1.pt");
+    torch::load(agent.myModel.fc2, "fc2.pt");
+    torch::load(agent.myModel.fc3, "fc3.pt");
+    agent.myModel.to(torch::kCUDA);
     ppo(agent, 100000);
 
     return 0;
