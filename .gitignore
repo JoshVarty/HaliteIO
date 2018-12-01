@@ -19,6 +19,7 @@ CMakeCache.txt
 */libtorch/*
 detect_cuda_compute_capabilities.cpp
 detect_cuda_version.cc
+*.pt
 
 # Distribution / packaging
 .Python
