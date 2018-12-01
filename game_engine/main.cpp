@@ -24,7 +24,11 @@ struct StepResult {
 
 const float MAX_HALITE_ON_MAP = 1000;           //The maximum natural drop of halite on the map
 const float MAX_HALITE_ON_SHIP = 1000;          //The maximum halite a ship can hold
-const float MAX_SCORE_APPROXIMATE = 50000;     //A rough estimate of a "Max" score that we'll use for scaling our player's scores
+const float MAX_SCORE_APPROXIMATE = 50000;      //A rough estimate of a "Max" score that we'll use for scaling our player's scores
+
+const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames to our neural network
+const int GAME_WIDTH = 64;                //The number of NxN input frames to our neural network
+const int GAME_HEIGHT = 64;                //The number of NxN input frames to our neural network
 
 
 struct ModelOutput {
@@ -112,7 +116,7 @@ public:
     torch::Device device;
 
     ActorCriticNetwork()
-    :   conv1(torch::nn::Conv2dOptions(12, 32, /*kernel_size=*/3)),
+    :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/3)),
         conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
          fc1(32 * 60 * 60, 256),
          fc2(256, 6),           //Actor head
@@ -189,8 +193,8 @@ int minimum_rollout_size = 1000;    //Minimum number of rollouts we accumulate b
 
 frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
-    int no_of_cols = 64;
-    int no_of_rows = 64;
+    int no_of_rows = GAME_HEIGHT;
+    int no_of_cols = GAME_WIDTH;
     int offset = 0;
 
     int numRows = game.map.grid.size();
@@ -286,15 +290,15 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
         auto score = player.energy;
         auto floatScore = (float)score;
         if(player.id.value == playerId) {
-            for(int i = 0; i < 64; i++) {
-                for(int j = 0; j < 64; j++){
+            for(int i = 0; i < GAME_HEIGHT; i++) {
+                for(int j = 0; j < GAME_WIDTH; j++){
                     my_score[i][j] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
                 }
             }
         }
         else {
-            for(int i = 0; i < 64; i++) {
-                for(int j = 0; j < 64; j++){
+            for(int i = 0; i < GAME_HEIGHT; i++) {
+                for(int j = 0; j < GAME_WIDTH; j++){
                     enemy_score[i][j] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
                 }
             }
@@ -303,8 +307,8 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
         //Steps remaining
         auto steps_remaining_value = totalSteps - game.turn_number + 1;
         if(player.id.value == playerId) {
-            for(int i = 0; i < 64; i++) {
-                for(int j = 0; j < 64; j++){
+            for(int i = 0; i < GAME_HEIGHT; i++) {
+                for(int j = 0; j < GAME_WIDTH; j++){
                     steps_remaining[i][j] = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
                 }
             }
@@ -358,8 +362,8 @@ CompleteRolloutResult generate_rollouts() {
         std::unordered_map<long, std::vector<RolloutItem>> rolloutsForCurrentGame;
 
         //Reset environment for new game
-        int map_width = 64;
-        int map_height = 64;
+        int map_width = GAME_HEIGHT;
+        int map_height = GAME_WIDTH;
         int numPlayers = 2;
         hlt::mapgen::MapType type = hlt::mapgen::MapType::Fractal;
         auto seed = static_cast<unsigned int>(time(nullptr));
@@ -402,13 +406,11 @@ CompleteRolloutResult generate_rollouts() {
                     auto frames = parseGridIntoSlices(0, game);
 
                     auto entity = game.store.get_entity(entityId);
-                    int no_of_rows = 64;
-                    int no_of_cols = 64;
 
                     //Zero out all cells except for where our current unit is
                     auto entityLocationFrame = frames.state[10];
-                    for(int i = 0; i < 64; i++) {
-                        for(int j = 0; j < 64; j++) {
+                    for(int i = 0; i < GAME_HEIGHT; i++) {
+                        for(int j = 0; j < GAME_WIDTH; j++) {
                             entityLocationFrame[i][j] = 0;
                         }
                     }
@@ -417,14 +419,14 @@ CompleteRolloutResult generate_rollouts() {
                     //Set entire frame to the score of the current unit
                     auto entityEnergyFrame = frames.state[11];
                     float energy = entity.energy;
-                    for(int i = 0; i < 64; i++) {
-                        for(int j = 0; j < 64; j++) {
+                    for(int i = 0; i < GAME_HEIGHT; i++) {
+                        for(int j = 0; j < GAME_WIDTH; j++) {
                             entityEnergyFrame[i][j] = (energy / MAX_HALITE_ON_SHIP) - 0.5;
                         }
                     }
 
                     //TODO: Ask the neural network what to do now?
-                    auto state = torch::from_blob(frames.state, {12,64,64});
+                    auto state = torch::from_blob(frames.state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH});
 
                     //frames.debug_print();
                     state = state.unsqueeze(0);
@@ -496,8 +498,8 @@ CompleteRolloutResult generate_rollouts() {
                 auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
                 auto player1Score = p1TurnProductions[p1TurnProductions.size() - 1];
                 auto player2Score = p2TurnProductions[p2TurnProductions.size() - 1];
-                // std::cout << "Player 1 total mined: " << player1Score << std::endl;
-                // std::cout << "Player 2 total mined: " << player2Score << std::endl;
+                std::cout << "Player 1 total mined: " << player1Score << std::endl;
+                std::cout << "Player 2 total mined: " << player2Score << std::endl;
                 // std::cout << std::endl;
 
                 scores.push_back(player1Score);
@@ -614,7 +616,7 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
             //Create stack of Tensors as input to neural network
             std::vector<at::Tensor> stateList;
             for(int i = 0; i < batchSize; i++) {
-                stateList.push_back(torch::from_blob(sampled_states[i].state, {12,64,64}));
+                stateList.push_back(torch::from_blob(sampled_states[i].state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH}));
             }
 
             auto batchInput = torch::stack(stateList);
@@ -667,6 +669,7 @@ public:
         }
 
         device = torch::Device(device_type);
+        myModel.to(device);;
     }
 
     StepResult step() {
@@ -727,6 +730,7 @@ void ppo(Agent myAgent, uint numEpisodes) {
             }
             else if(meanScore > bestMean) {
                 //TODO: Why do I have to save the weights one-by-one...
+                bestMean = meanScore;
                 torch::save(myAgent.myModel.conv1, "conv1.pt");
                 torch::save(myAgent.myModel.conv2, "conv2.pt");
                 torch::save(myAgent.myModel.fc1, "fc1.pt");
@@ -741,7 +745,12 @@ void ppo(Agent myAgent, uint numEpisodes) {
 int main(int argc, char *argv[]) {
 
     Agent agent;
-    ppo(agent, 10000);
+    // torch::load(agent.myModel.conv1, "conv1.pt");
+    // torch::load(agent.myModel.conv2, "conv2.pt");
+    // torch::load(agent.myModel.fc1, "fc1.pt");
+    // torch::load(agent.myModel.fc2, "fc2.pt");
+    // torch::load(agent.myModel.fc3, "fc3.pt");
+    ppo(agent, 100000);
 
     return 0;
 }
