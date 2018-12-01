@@ -15,10 +15,17 @@
 
 #include <torch/torch.h>
 
+
 struct StepResult {
     double meanScore;
     double meanSteps;
 };
+
+
+const float MAX_HALITE_ON_MAP = 1000;           //The maximum natural drop of halite on the map
+const float MAX_HALITE_ON_SHIP = 1000;          //The maximum halite a ship can hold
+const float MAX_SCORE_APPROXIMATE = 50000;     //A rough estimate of a "Max" score that we'll use for scaling our player's scores
+
 
 struct ModelOutput {
     at::Tensor action;
@@ -153,7 +160,6 @@ public:
             selected_action = selected_action.to(device);
         }
 
-
         auto log_prob = action_probabilities.gather(1, selected_action).log();
         auto value = fc3->forward(x);
         //Return action, log_prob, value
@@ -208,18 +214,18 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
     //Board info
     frame myFrame;
     auto frameData = myFrame.state;
-    auto halite_locations = frameData[0];
-    auto steps_remaining = frameData[1];
+    auto halite_locations = frameData[0];   // Range from [-0.5, ~0.5]
+    auto steps_remaining = frameData[1];    // Range from [-0.5, 0.5]
     //My global info
-    auto my_ships = frameData[2];
-    auto my_ships_halite = frameData[3];
-    auto my_dropoffs = frameData[4];
-    auto my_score = frameData[5];
+    auto my_ships = frameData[2];           // Range from [0,1]
+    auto my_ships_halite = frameData[3];    // Range from [-0.5, 0.5]
+    auto my_dropoffs = frameData[4];        // Range from [0, 1]
+    auto my_score = frameData[5];           // Range from [-0.5, 0.5]
     //Enemy global info
-    auto enemy_ships = frameData[6];
-    auto enemy_ships_halite = frameData[7];
-    auto enemy_dropoffs = frameData[8];
-    auto enemy_score = frameData[9];
+    auto enemy_ships = frameData[6];        // Range from [0,1]
+    auto enemy_ships_halite = frameData[7]; // Range from [-0.5, 0.5]
+    auto enemy_dropoffs = frameData[8];     // Range from [0,1]
+    auto enemy_score = frameData[9];        // Range from [-0.5, 0.5]
 
     int cellY = 0;
     for(auto row : game.map.grid) {
@@ -228,19 +234,19 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
             auto x = offset + cellX;
             auto y = offset + cellY;
 
-            //auto halite = cell.energy.value;
-            halite_locations[y][x] = cell.energy;
+            auto scaled_halite = (cell.energy / MAX_HALITE_ON_MAP) - 0.5;
+            halite_locations[y][x] = scaled_halite;
 
             if(cell.entity.value != -1) {
                 //There is a ship here
                 auto entity = game.store.get_entity(cell.entity);
 
                 if(entity.owner.value == playerId) {
-                    my_ships_halite[y][x] = entity.energy;
+                    my_ships_halite[y][x] = (entity.energy / MAX_HALITE_ON_SHIP) - 0.5;
                     my_ships[y][x] = 1;
                 }
                 else {
-                    enemy_ships_halite[y][x] = entity.energy;
+                    enemy_ships_halite[y][x] = (entity.energy / MAX_HALITE_ON_SHIP) - 0.5;
                     enemy_ships[y][x] = 2;
                 }
             }
@@ -282,14 +288,14 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
         if(player.id.value == playerId) {
             for(int i = 0; i < 64; i++) {
                 for(int j = 0; j < 64; j++){
-                    my_score[i][j] = floatScore;
+                    my_score[i][j] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
                 }
             }
         }
         else {
             for(int i = 0; i < 64; i++) {
                 for(int j = 0; j < 64; j++){
-                    enemy_score[i][j] = floatScore;
+                    enemy_score[i][j] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
                 }
             }
         }
@@ -299,7 +305,7 @@ frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
         if(player.id.value == playerId) {
             for(int i = 0; i < 64; i++) {
                 for(int j = 0; j < 64; j++){
-                    steps_remaining[i][j] = steps_remaining_value;
+                    steps_remaining[i][j] = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
                 }
             }
         }
@@ -413,7 +419,7 @@ CompleteRolloutResult generate_rollouts() {
                     float energy = entity.energy;
                     for(int i = 0; i < 64; i++) {
                         for(int j = 0; j < 64; j++) {
-                            entityEnergyFrame[i][j] = energy;
+                            entityEnergyFrame[i][j] = (energy / MAX_HALITE_ON_SHIP) - 0.5;
                         }
                     }
 
