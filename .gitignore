@@ -22,6 +22,7 @@ detect_cuda_compute_capabilities.cpp
 detect_cuda_version.cc
 *.pt
 *.cmake
+*MyBot
 
 # Distribution / packaging
 .Python
