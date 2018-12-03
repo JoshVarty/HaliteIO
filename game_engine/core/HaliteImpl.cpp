@@ -24,7 +24,6 @@ void HaliteImpl::initialize_game(int n_players) {
     //assert(game.map.factories.size() >= player_commands.size());
 
     // Add a 0 frame so we can record beginning-of-game state
-    game.replay.full_frames.emplace_back();
     std::unordered_set<Location> changed_cells;
 
     auto factory_iterator = game.map.factories.begin();
@@ -43,7 +42,7 @@ void HaliteImpl::initialize_game(int n_players) {
         game.game_statistics.player_statistics.emplace_back(player.id, game.rng());
         players.emplace(player.id, player);
     }
-    game.replay.game_statistics = game.game_statistics;
+    //game.replay.game_statistics = game.game_statistics;
 
     for (auto &[player_id, player] : game.store.players) {
         // Zero the energy on factory and mark as owned.
@@ -54,9 +53,9 @@ void HaliteImpl::initialize_game(int n_players) {
         // Prepare the log.
         //game.logs.add(player_id);
     }
-    game.replay.full_frames.back().add_cells(game.map, changed_cells);
+    //game.replay.full_frames.back().add_cells(game.map, changed_cells);
     update_player_stats();
-    game.replay.full_frames.back().add_end_state(game.store);
+    //game.replay.full_frames.back().add_end_state(game.store);
 }
 
 /** Run the game. */
@@ -146,14 +145,15 @@ void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawComma
 
         CommandTransaction transaction{game.store, game.map};
         std::unordered_set<Player::id_type> offenders;
-        transaction.on_event([&frames = game.replay.full_frames, this](GameEvent event) {
-            event->update_stats(game.store, game.map, game.game_statistics);
-            // Create new game event for replay file.
-            frames.back().events.push_back(std::move(event));
-        });
+        // transaction.on_event([&frames = game.replay.full_frames, this](GameEvent event) {
+        //     event->update_stats(game.store, game.map, game.game_statistics);
+        //     // Create new game event for replay file.
+        //     frames.back().events.push_back(std::move(event));
+        // });
         transaction.on_error([&offenders, &commands, this](CommandError error) {
             this->handle_error(offenders, commands, std::move(error));
         });
+
         transaction.on_cell_update([&changed_cells = game.store.changed_cells](Location cell) {
             changed_cells.emplace(cell);
         });
@@ -189,7 +189,7 @@ void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawComma
                 assert(offenders.empty());
             }
             // Add player commands to replay and note players still alive
-            game.replay.full_frames.back().moves = std::move(commands);
+            //game.replay.full_frames.back().moves = std::move(commands);
             break;
         } else {
             for (auto player : offenders) {
@@ -314,14 +314,11 @@ void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawComma
             game.store.get_entity(new_entity.id).was_captured = true;
             game.store.get_player(new_player_id).add_entity(new_entity.id, location);
 
-            game.replay.full_frames.back().events.push_back(
-                                                            std::make_unique<CaptureEvent>(location, entity.owner, entity.id,
-                                                                                           new_player_id, new_entity.id));
+            //game.replay.full_frames.back().events.push_back(std::make_unique<CaptureEvent>(location, entity.owner, entity.id, new_player_id, new_entity.id));
         }
     }
 
-
-    game.replay.full_frames.back().add_cells(game.map, game.store.changed_cells);
+    //game.replay.full_frames.back().add_cells(game.map, game.store.changed_cells);
     update_player_stats();
 }
 
