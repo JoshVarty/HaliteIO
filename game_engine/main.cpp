@@ -19,6 +19,7 @@
 struct StepResult {
     double meanScore;
     double meanSteps;
+    double meanLoss;
 };
 
 
@@ -647,8 +648,9 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
     return processed_rollouts;
 }
 
-void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
+std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 
+    std::vector<float> losses;
     Batcher batcher(std::min(this->mini_batch_number, processed_rollout.size()), processed_rollout);
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
@@ -704,10 +706,14 @@ void train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
             totalLoss.backward();
             //TODO: Can we use gradient clipping?
             optimizer.step();
+
+            //Keep track of losses
+            losses.push_back(totalLoss.item<float_t>());
         }
     }
 
     //std::cout << "Finished learning step" << std::endl;
+    return losses;
 }
 
 public:
@@ -744,6 +750,7 @@ public:
     StepResult step() {
         std::vector<long> scores;
         std::vector<long> gameSteps;
+        std::vector<float> losses;
 
         auto rolloutResult = generate_rollouts();
         scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
@@ -751,11 +758,12 @@ public:
 
         auto processed_rollout = process_rollouts(rolloutResult.rollouts);
         // train_network
-        train_network(processed_rollout);
+        auto currentLosses = train_network(processed_rollout);
 
         StepResult result;
         result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 
         result.meanSteps = std::accumulate(gameSteps.begin(), gameSteps.end(), 0.0) / gameSteps.size();
+        result.meanLoss = std::accumulate(currentLosses.begin(), currentLosses.end(), 0.0) / currentLosses.size();
 
         return result;
     }
@@ -768,31 +776,40 @@ void ppo(Agent myAgent, uint numEpisodes) {
     auto bestNumSteps = -1;
     std::vector<double> allScores;
     std::vector<double> allGameSteps;
+    std::vector<double> allLosses;
     std::deque<double> lastHundredScores;
     std::deque<double> lastHundredSteps;
+    std::deque<double> lastHundredLosses;
 
     for (uint i = 1; i < numEpisodes + 1; i++) {
 
         StepResult result = myAgent.step();
         allScores.push_back(result.meanScore);
         allGameSteps.push_back(result.meanSteps);
+        allLosses.push_back(result.meanLoss);
         //Keep track of the last 10 scores
         lastHundredScores.push_back(result.meanScore);
         lastHundredSteps.push_back(result.meanSteps);
+        lastHundredLosses.push_back(result.meanLoss);
         if(lastHundredScores.size() > 10) {
             lastHundredScores.pop_front();
         }
         if(lastHundredSteps.size() > 10) {
             lastHundredSteps.pop_front();
         }
+        if(lastHundredLosses.size() > 10) {
+            lastHundredLosses.pop_front();
+        }
 
         if (i % 10 == 0) {
             double meanScore = std::accumulate(lastHundredScores.begin(), lastHundredScores.end(), 0.0) / lastHundredScores.size();
             double meanGameSteps = std::accumulate(lastHundredSteps.begin(), lastHundredSteps.end(), 0.0) / lastHundredSteps.size();
+            double meanLoss = std::accumulate(lastHundredLosses.begin(), lastHundredLosses.end(), 0.0) / lastHundredLosses.size();
 
             //Every 10 episodes, display the mean reward
             std::cout << "Mean score at step: " << i << ": " << meanScore << std::endl;
             std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
+            std::cout << "Mean loss at step: " << i << ": " << meanLoss << std::endl;
 
             //If our network is improving, save the current weights
             if(meanGameSteps > bestNumSteps || meanScore > bestMean) {
