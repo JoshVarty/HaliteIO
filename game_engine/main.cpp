@@ -201,7 +201,7 @@ private:
 
 std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 
-double discount_rate = 0.99;        //Amount by which to discount future rewards
+double discount_rate = 0.995;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 5;             //number of optimization rounds for a single rollout
 std::size_t mini_batch_number = 128; //batch size for optimization
