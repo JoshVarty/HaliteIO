@@ -714,14 +714,14 @@ public:
     torch::Device device;
     torch::optim::Adam optimizer;
 
-    float discount_rate;
-    float tau;
-    int learningRounds;
-    std::size_t mini_batch_number;
-    float ppo_clip;
+    float discount_rate;            //Amount by which to discount future rewards
+    float tau;                      //
+    int learningRounds;             //number of optimization rounds for a single rollout
+    std::size_t mini_batch_number;  //batch size for optimization
+    float ppo_clip;                 //Clip gradient to try to prevent unstable learning
     //int gradient_clip;
-    int minimum_rollout_size;
-    float learning_rate;
+    int minimum_rollout_size;       //Minimum number of rollouts we accumulate before training the network
+    float learning_rate;            //Rate at which the network learns
 
     Agent(float discount_rate, float tau, float learningRounds, float mini_batch_number, float ppo_clip, float minimum_rollout_size, float learning_rate):
         device(torch::Device(torch::kCUDA)),
@@ -866,19 +866,41 @@ void loadWeights(Agent agent) {
 
 int main(int argc, char *argv[]) {
 
-    double discount_rate = 0.99;        //Amount by which to discount future rewards
+    //Parameters over which we'd like to search
+    std::vector<float> discount_rates {0.99, 0.995};
+    std::vector<int> learning_rounds {3, 5, 10};
+    std::vector<int> mini_batch_numbers {32, 64, 128};
+    std::vector<int> minimum_rollout_sizes {1000, 5000};
+    std::vector<float> learning_rates {0.0000001, 0.00000001, 0.000000001};
+
     double tau = 0.95;                  //
-    int learningRounds = 5;             //number of optimization rounds for a single rollout
-    std::size_t mini_batch_number = 128; //batch size for optimization
     double ppo_clip = 0.2;              //
     int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
     int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
-    double learning_rate = 0.00000001;  //Minimum number of rollouts we accumulate before training the network
 
-    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+    int numProcessed = 0;
+    for(auto discount_rate : discount_rates) {
+        for(auto learning_round : learning_rounds) {
+            for(auto mini_batch_number : mini_batch_numbers) {
+                for(auto minimum_rollout_size : minimum_rollout_sizes) {
+                    for(auto learning_rate : learning_rates) {
+                        try {
+                            std::cout << "NumProccesed: " << numProcessed << std::endl;
+                            Agent agent(discount_rate, tau, learning_round, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+                            ppo(agent, 1000);
+                        }
+                        catch (const std::exception& e) {
+                            std::cout << std::endl << "ERROR!" << std::endl;
+                        }
+                        numProcessed++;
+                        std::cout << std::endl << "~~~~~~~~~~" << std::endl;
+                    }
+                }
+            }
+        }
+    }
+
     //loadWeights(agent);       Optionally load the network weights from disk
-
-    ppo(agent, 1000);
 
     return 0;
 }
