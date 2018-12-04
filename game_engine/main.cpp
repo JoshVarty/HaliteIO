@@ -830,6 +830,25 @@ void ppo(Agent myAgent, uint numEpisodes) {
             }
         }
     }
+
+    std::vector<double> allScores;
+    std::vector<double> allGameSteps;
+    std::vector<double> allLosses;
+
+    std::cout << "AllScores:" << std::endl;
+    for(auto score : allScores) {
+        std::cout << score << std::endl;
+    }
+    
+    std::cout << "AllGameSteps:" << std::endl;
+    for(auto steps : allGameSteps) {
+        std::cout << steps << std::endl;
+    }
+    
+    std::cout << "AllLosses:" << std::endl;
+    for(auto loss : allLosses) {
+        std::cout << loss << std::endl;
+    }
 }
 
 
@@ -852,7 +871,7 @@ int main(int argc, char *argv[]) {
     }
 
     agent.myModel.to(torch::kCUDA);
-    ppo(agent, 100000);
+    ppo(agent, 1000);
 
     return 0;
 }
