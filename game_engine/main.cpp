@@ -176,7 +176,7 @@ public:
         if(selected_action.numel() == 0) {
             //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
             //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-            selected_action = action_probabilities.multinomial(1, true);
+            selected_action = action_probabilities.multinomial(1);
             // std::cout << a << std::endl;
             // std::cout << action_probabilities << std::endl;
         }
@@ -211,6 +211,7 @@ std::size_t mini_batch_number = 128; //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
 int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
+double learning_rate = 0.00000001;  //Minimum number of rollouts we accumulate before training the network
 
 Frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
@@ -686,7 +687,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.00000001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(learning_rate))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
@@ -697,6 +698,16 @@ public:
 
         device = torch::Device(device_type);
         myModel.to(device);;
+
+        //Print out hyperparameter information
+        std::cout << "discount_rate: " << discount_rate << std::endl;
+        std::cout << "tau: " << tau << std::endl;
+        std::cout << "learning_rounds: " << learningRounds << std::endl;
+        std::cout << "mini_batch_number: " << mini_batch_number << std::endl;
+        std::cout << "ppo_clip: " << ppo_clip << std::endl;
+        //std::cout << "gradient_clip: " << gradient_clip << std::endl;
+        std::cout << "minimum_rollout_size : " << minimum_rollout_size << std::endl;
+        std::cout << "learning_rate: " << learning_rate << std::endl;
     }
 
     StepResult step() {
