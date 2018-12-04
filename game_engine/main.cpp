@@ -724,7 +724,7 @@ public:
     float learning_rate;
 
     Agent(float discount_rate, float tau, float learningRounds, float mini_batch_number, float ppo_clip, float minimum_rollout_size, float learning_rate):
-        device(torch::Device(torch::kCPU)),
+        device(torch::Device(torch::kCUDA)),
         discount_rate(discount_rate),
         tau(tau),
         learningRounds(learningRounds),
@@ -734,15 +734,7 @@ public:
         learning_rate(learning_rate),
         optimizer(myModel.parameters(), torch::optim::AdamOptions(learning_rate))
     {
-        torch::DeviceType device_type;
-        if (torch::cuda::is_available()) {
-            device_type = torch::kCUDA;
-        } else {
-            device_type = torch::kCPU;
-        }
-
-        device = torch::Device(device_type);
-        myModel.to(device);;
+        myModel.to(device);
 
         //Print out hyperparameter information
         std::cout << "discount_rate: " << discount_rate << std::endl;
@@ -765,7 +757,6 @@ public:
         gameSteps.insert(gameSteps.end(), rolloutResult.gameSteps.begin(), rolloutResult.gameSteps.end());
 
         auto processed_rollout = process_rollouts(rolloutResult.rollouts);
-        // train_network
         auto currentLosses = train_network(processed_rollout);
 
         StepResult result;
@@ -855,20 +846,7 @@ void ppo(Agent myAgent, uint numEpisodes) {
     }
 }
 
-
-int main(int argc, char *argv[]) {
-
-    double discount_rate = 0.99;        //Amount by which to discount future rewards
-    double tau = 0.95;                  //
-    int learningRounds = 5;             //number of optimization rounds for a single rollout
-    std::size_t mini_batch_number = 128; //batch size for optimization
-    double ppo_clip = 0.2;              //
-    int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
-    int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
-    double learning_rate = 0.00000001;  //Minimum number of rollouts we accumulate before training the network
-
-    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
-
+void loadWeights(Agent agent) {
     try {
         agent.myModel.to(torch::kCPU);
         torch::load(agent.myModel.conv1, "conv1.pt");
@@ -884,6 +862,22 @@ int main(int argc, char *argv[]) {
     }
 
     agent.myModel.to(torch::kCUDA);
+}
+
+int main(int argc, char *argv[]) {
+
+    double discount_rate = 0.99;        //Amount by which to discount future rewards
+    double tau = 0.95;                  //
+    int learningRounds = 5;             //number of optimization rounds for a single rollout
+    std::size_t mini_batch_number = 128; //batch size for optimization
+    double ppo_clip = 0.2;              //
+    int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
+    int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
+    double learning_rate = 0.00000001;  //Minimum number of rollouts we accumulate before training the network
+
+    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+    //loadWeights(agent);       Optionally load the network weights from disk
+
     ppo(agent, 1000);
 
     return 0;
