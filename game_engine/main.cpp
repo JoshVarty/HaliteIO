@@ -134,15 +134,17 @@ public:
     torch::Device device;
 
     ActorCriticNetwork()
-    :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/3)),
-        conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
-         fc1(32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4), 256),
-         fc2(256, 6),           //Actor head
-         fc3(256, 1),           //Critic head
+    :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/7)),
+        conv2(torch::nn::Conv2dOptions(32, 64, /*kernel_size=*/3)),
+        conv3(torch::nn::Conv2dOptions(64, 64, /*kernel_size=*/3)),
+         fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 512),
+         fc2(512, 6),           //Actor head
+         fc3(512, 1),           //Critic head
          device(torch::Device(torch::kCUDA))
     {
         register_module("conv1", conv1);
         register_module("conv2", conv2);
+        register_module("conv3", conv3);
         register_module("fc1", fc1);
         register_module("fc2", fc2);
         register_module("fc3", fc3);
@@ -162,10 +164,10 @@ public:
 
     ModelOutput forward(torch::Tensor x, torch::Tensor selected_action) {
         x = x.to(this->device);
-        x = conv1->forward(x);
-        x = torch::relu(x);
+        x = torch::relu(conv1->forward(x));
         x = torch::relu(conv2->forward(x));
-        x = x.view({-1, 32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4)});
+        x = torch::relu(conv3->forward(x));
+        x = x.view({-1, 64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10)});
         x = torch::relu(fc1->forward(x));
 
         auto a = fc2->forward(x);
@@ -191,6 +193,7 @@ public:
 
     torch::nn::Conv2d conv1;
     torch::nn::Conv2d conv2;
+    torch::nn::Conv2d conv3;
     torch::nn::Linear fc1;
     torch::nn::Linear fc2;
     torch::nn::Linear fc3;
@@ -201,7 +204,7 @@ private:
 
 std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 
-double discount_rate = 0.995;        //Amount by which to discount future rewards
+double discount_rate = 0.99;        //Amount by which to discount future rewards
 double tau = 0.95;                  //
 int learningRounds = 5;             //number of optimization rounds for a single rollout
 std::size_t mini_batch_number = 128; //batch size for optimization
@@ -683,7 +686,7 @@ public:
 
     Agent():
         device(torch::Device(torch::kCPU)),
-        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.0000001))
+        optimizer(myModel.parameters(), torch::optim::AdamOptions(0.00000001))
     {
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
@@ -759,6 +762,7 @@ void ppo(Agent myAgent, uint numEpisodes) {
                 myAgent.myModel.to(torch::kCPU);
                 torch::save(myAgent.myModel.conv1, "conv1.pt");
                 torch::save(myAgent.myModel.conv2, "conv2.pt");
+                torch::save(myAgent.myModel.conv3, "conv3.pt");
                 torch::save(myAgent.myModel.fc1, "fc1.pt");
                 torch::save(myAgent.myModel.fc2, "fc2.pt");
                 torch::save(myAgent.myModel.fc3, "fc3.pt");
@@ -778,6 +782,7 @@ int main(int argc, char *argv[]) {
         agent.myModel.to(torch::kCPU);
         torch::load(agent.myModel.conv1, "conv1.pt");
         torch::load(agent.myModel.conv2, "conv2.pt");
+        torch::load(agent.myModel.conv3, "conv3.pt");
         torch::load(agent.myModel.fc1, "fc1.pt");
         torch::load(agent.myModel.fc2, "fc2.pt");
         torch::load(agent.myModel.fc3, "fc3.pt");
