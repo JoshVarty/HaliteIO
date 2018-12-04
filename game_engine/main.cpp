@@ -160,6 +160,37 @@ public:
 
         device = torch::Device(device_type);
         this->to(device);
+
+        //Print out network information at beginning of run
+        std::cout << "Conv1: (";
+        std::cout << conv1.get()->weight.size(0) << ", ";
+        std::cout << conv1.get()->weight.size(1) << ", ";
+        std::cout << conv1.get()->weight.size(2) << ", ";
+        std::cout << conv1.get()->weight.size(3) << ")" << std::endl;
+
+        std::cout << "Conv2: (";
+        std::cout << conv2.get()->weight.size(0) << ", ";
+        std::cout << conv2.get()->weight.size(1) << ", ";
+        std::cout << conv2.get()->weight.size(2) << ", ";
+        std::cout << conv2.get()->weight.size(3) << ")" << std::endl;
+
+        std::cout << "Conv3: (";
+        std::cout << conv3.get()->weight.size(0) << ", ";
+        std::cout << conv3.get()->weight.size(1) << ", ";
+        std::cout << conv3.get()->weight.size(2) << ", ";
+        std::cout << conv3.get()->weight.size(3) << ")" << std::endl;
+
+        std::cout << "fc1: (";
+        std::cout << fc1.get()->weight.size(0) << ", ";
+        std::cout << fc1.get()->weight.size(1) << ")" << std::endl;
+
+        std::cout << "fc2: (";
+        std::cout << fc2.get()->weight.size(0) << ", ";
+        std::cout << fc2.get()->weight.size(1) << ")" << std::endl;
+
+        std::cout << "fc3: (";
+        std::cout << fc3.get()->weight.size(0) << ", ";
+        std::cout << fc3.get()->weight.size(1) << ")" << std::endl;
     }
 
     ModelOutput forward(torch::Tensor x, torch::Tensor selected_action) {
