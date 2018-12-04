@@ -770,7 +770,7 @@ public:
 
 
 
-void ppo(Agent myAgent, uint numEpisodes) {
+void ppo(Agent myAgent, uint numEpisodes, int iteration) {
     auto bestMean = -1;
     auto bestNumSteps = -1;
     std::vector<double> allScores;
@@ -818,12 +818,12 @@ void ppo(Agent myAgent, uint numEpisodes) {
                 std::cout << "New Best. Saving model..." << std::endl;
                 //We have to move the model to CPU before saving
                 myAgent.myModel.to(torch::kCPU);
-                torch::save(myAgent.myModel.conv1, "conv1.pt");
-                torch::save(myAgent.myModel.conv2, "conv2.pt");
-                torch::save(myAgent.myModel.conv3, "conv3.pt");
-                torch::save(myAgent.myModel.fc1, "fc1.pt");
-                torch::save(myAgent.myModel.fc2, "fc2.pt");
-                torch::save(myAgent.myModel.fc3, "fc3.pt");
+                torch::save(myAgent.myModel.conv1, std::to_string(iteration) + "conv1.pt");
+                torch::save(myAgent.myModel.conv2, std::to_string(iteration) + "conv2.pt");
+                torch::save(myAgent.myModel.conv3, std::to_string(iteration) + "conv3.pt");
+                torch::save(myAgent.myModel.fc1, std::to_string(iteration) + "fc1.pt");
+                torch::save(myAgent.myModel.fc2, std::to_string(iteration) + "fc2.pt");
+                torch::save(myAgent.myModel.fc3, std::to_string(iteration) + "fc3.pt");
                 //Now we move the model back to the GPU
                 myAgent.myModel.to(torch::kCUDA);
             }
@@ -887,7 +887,7 @@ int main(int argc, char *argv[]) {
                         try {
                             std::cout << "NumProccesed: " << numProcessed << std::endl;
                             Agent agent(discount_rate, tau, learning_round, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
-                            ppo(agent, 1000);
+                            ppo(agent, 1000, numProcessed);
                         }
                         catch (const std::exception& e) {
                             std::cout << std::endl << "ERROR!" << std::endl;
