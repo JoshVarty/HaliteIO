@@ -236,14 +236,6 @@ private:
 
 std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 
-double discount_rate = 0.99;        //Amount by which to discount future rewards
-double tau = 0.95;                  //
-int learningRounds = 5;             //number of optimization rounds for a single rollout
-std::size_t mini_batch_number = 128; //batch size for optimization
-double ppo_clip = 0.2;              //
-int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
-int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
-double learning_rate = 0.00000001;  //Minimum number of rollouts we accumulate before training the network
 
 Frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
@@ -722,8 +714,24 @@ public:
     torch::Device device;
     torch::optim::Adam optimizer;
 
-    Agent():
+    float discount_rate;
+    float tau;
+    int learningRounds;
+    std::size_t mini_batch_number;
+    float ppo_clip;
+    //int gradient_clip;
+    int minimum_rollout_size;
+    float learning_rate;
+
+    Agent(float discount_rate, float tau, float learningRounds, float mini_batch_number, float ppo_clip, float minimum_rollout_size, float learning_rate):
         device(torch::Device(torch::kCPU)),
+        discount_rate(discount_rate),
+        tau(tau),
+        learningRounds(learningRounds),
+        mini_batch_number(mini_batch_number),
+        ppo_clip(ppo_clip),
+        minimum_rollout_size(minimum_rollout_size),
+        learning_rate(learning_rate),
         optimizer(myModel.parameters(), torch::optim::AdamOptions(learning_rate))
     {
         torch::DeviceType device_type;
@@ -831,20 +839,16 @@ void ppo(Agent myAgent, uint numEpisodes) {
         }
     }
 
-    std::vector<double> allScores;
-    std::vector<double> allGameSteps;
-    std::vector<double> allLosses;
-
     std::cout << "AllScores:" << std::endl;
     for(auto score : allScores) {
         std::cout << score << std::endl;
     }
-    
+
     std::cout << "AllGameSteps:" << std::endl;
     for(auto steps : allGameSteps) {
         std::cout << steps << std::endl;
     }
-    
+
     std::cout << "AllLosses:" << std::endl;
     for(auto loss : allLosses) {
         std::cout << loss << std::endl;
@@ -854,7 +858,16 @@ void ppo(Agent myAgent, uint numEpisodes) {
 
 int main(int argc, char *argv[]) {
 
-    Agent agent;
+    double discount_rate = 0.99;        //Amount by which to discount future rewards
+    double tau = 0.95;                  //
+    int learningRounds = 5;             //number of optimization rounds for a single rollout
+    std::size_t mini_batch_number = 128; //batch size for optimization
+    double ppo_clip = 0.2;              //
+    int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
+    int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
+    double learning_rate = 0.00000001;  //Minimum number of rollouts we accumulate before training the network
+
+    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
 
     try {
         agent.myModel.to(torch::kCPU);
