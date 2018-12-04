@@ -207,7 +207,7 @@ int learningRounds = 5;             //number of optimization rounds for a single
 std::size_t mini_batch_number = 128; //batch size for optimization
 double ppo_clip = 0.2;              //
 int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
-int minimum_rollout_size = 2000;    //Minimum number of rollouts we accumulate before training the network
+int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
 
 Frame parseGridIntoSlices(long playerId, hlt::Halite &game) {
 
@@ -487,6 +487,12 @@ CompleteRolloutResult generate_rollouts() {
             for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
                 auto entityId = rolloutKeyValue.first;
                 auto rolloutItem = rolloutKeyValue.second;
+
+                //If this ship collided on this turn, penalize it
+                if(std::find(game.store.selfCollidedEntities.begin(), game.store.selfCollidedEntities.end(), entityId) != game.store.selfCollidedEntities.end()) {
+                    rolloutItem.reward = rolloutItem.reward - 0.05;
+                }
+
                 rolloutsForCurrentGame[entityId].push_back(rolloutItem);
             }
 

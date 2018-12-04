@@ -106,6 +106,10 @@ void HaliteImpl::parse(AgentCommand agentCommand, std::unique_ptr<Command> &comm
 
 /** Retrieve and process commands, and update the game state for the current turn. */
 void HaliteImpl::process_turn(std::map<long, std::vector<AgentCommand>> rawCommands) {
+
+    //Reset list of self-collided ships
+    game.store.selfCollidedEntities.clear();
+
     // Retrieve all commands
     using Commands = std::vector<std::unique_ptr<Command>>;
     ordered_id_map<Player, Commands> commands{};

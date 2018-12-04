@@ -224,6 +224,11 @@ void MoveTransaction::commit() {
                 // generating the event, so that HaliteImpl has a
                 // chance to collect statistics.
             }
+
+            for(auto id : collision_ids){
+                store.selfCollidedEntities.push_back(id.value);
+            }
+
             for (const auto &[player_id, self_collision_entities] : self_collisions) {
                 if (self_collision_entities.size() > MAX_ENTITIES_PER_CELL) {
                     auto &commands = self_collision_commands[player_id];
