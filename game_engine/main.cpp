@@ -791,22 +791,22 @@ void ppo(Agent myAgent, uint numEpisodes) {
         lastHundredScores.push_back(result.meanScore);
         lastHundredSteps.push_back(result.meanSteps);
         lastHundredLosses.push_back(result.meanLoss);
-        if(lastHundredScores.size() > 10) {
+        if(lastHundredScores.size() > 50) {
             lastHundredScores.pop_front();
         }
-        if(lastHundredSteps.size() > 10) {
+        if(lastHundredSteps.size() > 50) {
             lastHundredSteps.pop_front();
         }
-        if(lastHundredLosses.size() > 10) {
+        if(lastHundredLosses.size() > 50) {
             lastHundredLosses.pop_front();
         }
 
-        if (i % 10 == 0) {
+        if (i % 50 == 0) {
             double meanScore = std::accumulate(lastHundredScores.begin(), lastHundredScores.end(), 0.0) / lastHundredScores.size();
             double meanGameSteps = std::accumulate(lastHundredSteps.begin(), lastHundredSteps.end(), 0.0) / lastHundredSteps.size();
             double meanLoss = std::accumulate(lastHundredLosses.begin(), lastHundredLosses.end(), 0.0) / lastHundredLosses.size();
 
-            //Every 10 episodes, display the mean reward
+            //Every 50 episodes, display the mean reward
             std::cout << "Mean score at step: " << i << ": " << meanScore << std::endl;
             std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
             std::cout << "Mean loss at step: " << i << ": " << meanLoss << std::endl;
