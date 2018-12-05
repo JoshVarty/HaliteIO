@@ -539,7 +539,7 @@ CompleteRolloutResult generate_rollouts() {
                 }
                 else {
                     //If there is a tie we don't care about this rollout
-                    std::cout << "Tie. We're ignoring this game" << std::endl;
+                    // std::cout << "Tie. We're ignoring this game" << std::endl;
                     break;
                 }
 
