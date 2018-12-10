@@ -370,32 +370,6 @@ enum GameResult {
     Tie
 };
 
-GameResult getWinner(hlt::PlayerStatistics p1, hlt::PlayerStatistics other){
-      if (p1.last_turn_alive == other.last_turn_alive) {
-        auto turn_to_compare = p1.last_turn_alive;
-        while (p1.turn_productions[turn_to_compare] == other.turn_productions[turn_to_compare]) {
-            if (--turn_to_compare < 0) {
-                // Players exactly tied on all turns
-                return GameResult::Tie;
-            }
-        }
-
-        if(p1.turn_productions[turn_to_compare] < other.turn_productions[turn_to_compare]){
-            return GameResult::Player2;
-        }
-        else{
-            return GameResult::Player1;
-        }
-    } else {
-        if(p1.last_turn_alive < other.last_turn_alive){
-            return GameResult::Player2;
-        }
-        else{
-            return GameResult::Player1;
-        }
-    }
-}
-
 CompleteRolloutResult generate_rollouts() {
 
     CompleteRolloutResult result;
@@ -527,30 +501,10 @@ CompleteRolloutResult generate_rollouts() {
                 //std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
                 gameSteps.push_back(game.turn_number);
 
-                auto winningId = -1;
-                auto winner = getWinner(game.game_statistics.player_statistics[0], game.game_statistics.player_statistics[1]);
-                if (winner == GameResult::Player1) {
-                    winningId = 0;
-                }
-                else if (winner == GameResult::Player2) {
-                    winningId = 1;
-                }
-                else {
-                    //If there is a tie we don't care about this rollout
-                    // std::cout << "Tie. We're ignoring this game" << std::endl;
-                    break;
-                }
-
-                // std::cout << std::endl;
-                // std::cout << "Winner: " << winningId << std::endl;
-                // std::cout << std::endl;
                 auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
                 auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
                 auto player1Score = p1TurnProductions[p1TurnProductions.size() - 1];
                 auto player2Score = p2TurnProductions[p2TurnProductions.size() - 1];
-                // std::cout << "Player 1 total mined: " << player1Score << std::endl;
-                // std::cout << "Player 2 total mined: " << player2Score << std::endl;
-                // std::cout << std::endl;
 
                 scores.push_back(player1Score);
                 scores.push_back(player2Score);
@@ -563,11 +517,11 @@ CompleteRolloutResult generate_rollouts() {
 
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     lastRolloutItem.done = 0;
-                    if(lastRolloutItem.playerId == winningId) {
-                        lastRolloutItem.reward = 1;
+                    if(lastRolloutItem.playerId == 0) {
+                        lastRolloutItem.reward = player1Score;
                     }
                     else {
-                        lastRolloutItem.reward = -1;
+                        lastRolloutItem.reward = player2Score;
                     }
 
                     rolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
@@ -908,21 +862,21 @@ void runGridSearch() {
 
 int main(int argc, char *argv[]) {
 
-    runGridSearch();
+    //runGridSearch();
 
-    // int numEpisodes = 2000;
-    // int numProcessed = 0;
+    int numEpisodes = 2000;
+    int numProcessed = 0;
 
-    // float discount_rate = 0.99;
-    // float tau = 0.95;
-    // float learningRounds = 2;
-    // float mini_batch_number = 32;
-    // float ppo_clip = 0.2;
-    // float minimum_rollout_size = 1000;
-    // float learning_rate = 0.0000001;
+    float discount_rate = 0.99;
+    float tau = 0.95;
+    float learningRounds = 3;
+    float mini_batch_number = 32;
+    float ppo_clip = 0.2;
+    float minimum_rollout_size = 1000;
+    float learning_rate = 0.0000001;
 
-    // Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
-    // ppo(agent, numEpisodes, numProcessed);
+    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+    ppo(agent, numEpisodes, numProcessed);
 
     //loadWeights(agent);       Optionally load the network weights from disk
 
