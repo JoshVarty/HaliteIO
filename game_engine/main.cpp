@@ -497,10 +497,8 @@ CompleteRolloutResult generate_rollouts() {
                     playerCommands.push_back(AgentCommand(entityId.value, command));
                 }
 
-                // auto energy = player.energy;
-                //if self.game.turn_number <= 200 and me.halite_amount >= constants.SHIP_COST and not game_map[me.shipyard].is_occupied:
                 auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
-                if(game.turn_number <= 200 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
+                if(game.turn_number <= 100 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
                     long factoryId = -1;
                     std::string command = "spawn";
                     playerCommands.push_back(AgentCommand(factoryId, command));
