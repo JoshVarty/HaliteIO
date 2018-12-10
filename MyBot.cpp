@@ -122,21 +122,24 @@ std::vector<ProcessedRolloutItem>::iterator batchEnd;
     }
 };
 
+
 struct ActorCriticNetwork : torch::nn::Module {
 public:
 
     torch::Device device;
 
     ActorCriticNetwork()
-    :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/3)),
-        conv2(torch::nn::Conv2dOptions(32, 32, /*kernel_size=*/3)),
-         fc1(32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4), 256),
-         fc2(256, 6),           //Actor head
-         fc3(256, 1),           //Critic head
+    :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/7)),
+        conv2(torch::nn::Conv2dOptions(32, 64, /*kernel_size=*/3)),
+        conv3(torch::nn::Conv2dOptions(64, 64, /*kernel_size=*/3)),
+         fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 512),
+         fc2(512, 6),           //Actor head
+         fc3(512, 1),           //Critic head
          device(torch::Device(torch::kCUDA))
     {
         register_module("conv1", conv1);
         register_module("conv2", conv2);
+        register_module("conv3", conv3);
         register_module("fc1", fc1);
         register_module("fc2", fc2);
         register_module("fc3", fc3);
@@ -154,10 +157,10 @@ public:
 
     ModelOutput forward(torch::Tensor x, torch::Tensor selected_action) {
         x = x.to(this->device);
-        x = conv1->forward(x);
-        x = torch::relu(x);
+        x = torch::relu(conv1->forward(x));
         x = torch::relu(conv2->forward(x));
-        x = x.view({-1, 32 * (GAME_HEIGHT - 4) * (GAME_WIDTH - 4)});
+        x = torch::relu(conv3->forward(x));
+        x = x.view({-1, 64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10)});
         x = torch::relu(fc1->forward(x));
 
         auto a = fc2->forward(x);
@@ -166,7 +169,7 @@ public:
         if(selected_action.numel() == 0) {
             //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
             //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-            selected_action = action_probabilities.multinomial(1, true);
+            selected_action = action_probabilities.multinomial(1);
             // std::cout << a << std::endl;
             // std::cout << action_probabilities << std::endl;
         }
@@ -183,6 +186,7 @@ public:
 
     torch::nn::Conv2d conv1;
     torch::nn::Conv2d conv2;
+    torch::nn::Conv2d conv3;
     torch::nn::Linear fc1;
     torch::nn::Linear fc2;
     torch::nn::Linear fc3;
@@ -314,8 +318,6 @@ Frame parseGridIntoSlices(long playerId, hlt::Game &game) {
     return myFrame;
 }
 
-
-
 int main(int argc, char* argv[]) {
 
     unsigned int rng_seed;
@@ -330,11 +332,12 @@ int main(int argc, char* argv[]) {
 
     ActorCriticNetwork myModel;
     myModel.to(torch::kCPU);
-    torch::load(myModel.conv1, "conv1.pt");
-    torch::load(myModel.conv2, "conv2.pt");
-    torch::load(myModel.fc1, "fc1.pt");
-    torch::load(myModel.fc2, "fc2.pt");
-    torch::load(myModel.fc3, "fc3.pt");    
+    torch::load(myModel.conv1, "9conv1.pt");
+    torch::load(myModel.conv2, "9conv2.pt");
+    torch::load(myModel.conv3, "9conv3.pt");
+    torch::load(myModel.fc1, "9fc1.pt");
+    torch::load(myModel.fc2, "9fc2.pt");
+    torch::load(myModel.fc3, "9fc3.pt");    
     myModel.to(torch::kCUDA);
 
     // At this point "game" variable is populated with initial map data.

@@ -864,10 +864,9 @@ void loadWeights(Agent agent) {
     agent.myModel.to(torch::kCUDA);
 }
 
-int main(int argc, char *argv[]) {
-
-    //Parameters over which we'd like to search
-    std::vector<float> discount_rates {0.99, 0.995};
+void runGridSearch() {
+  //Parameters over which we'd like to search
+    std::vector<float> discount_rates {0.995};
     std::vector<int> learning_rounds {3, 5, 10};
     std::vector<int> mini_batch_numbers {32, 64, 128};
     std::vector<int> minimum_rollout_sizes {1000, 5000};
@@ -876,7 +875,6 @@ int main(int argc, char *argv[]) {
     double tau = 0.95;                  //
     double ppo_clip = 0.2;              //
     int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
-    int minimum_rollout_size = 5000;    //Minimum number of rollouts we accumulate before training the network
 
     int numProcessed = 0;
     for(auto discount_rate : discount_rates) {
@@ -885,9 +883,18 @@ int main(int argc, char *argv[]) {
                 for(auto minimum_rollout_size : minimum_rollout_sizes) {
                     for(auto learning_rate : learning_rates) {
                         try {
+                            std::cout << discount_rate << " " << learning_round << " " << mini_batch_number;
+                            std::cout << " " << ppo_clip << " " << minimum_rollout_size << " " << learning_rate << std::endl;
+                            if (numProcessed < 24) {
+                                //Skipping combinations we'd done already
+                                numProcessed++;
+                                continue;
+                            }
+
+                            int numEpisodes = 1000;
                             std::cout << "NumProccesed: " << numProcessed << std::endl;
                             Agent agent(discount_rate, tau, learning_round, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
-                            ppo(agent, 1000, numProcessed);
+                            ppo(agent, numEpisodes, numProcessed);
                         }
                         catch (const std::exception& e) {
                             std::cout << std::endl << "ERROR!" << std::endl;
@@ -899,6 +906,25 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+}
+
+int main(int argc, char *argv[]) {
+
+    runGridSearch();
+
+    // int numEpisodes = 2000;
+    // int numProcessed = 0;
+
+    // float discount_rate = 0.99;
+    // float tau = 0.95;
+    // float learningRounds = 2;
+    // float mini_batch_number = 32;
+    // float ppo_clip = 0.2;
+    // float minimum_rollout_size = 1000;
+    // float learning_rate = 0.0000001;
+
+    // Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+    // ppo(agent, numEpisodes, numProcessed);
 
     //loadWeights(agent);       Optionally load the network weights from disk
 
