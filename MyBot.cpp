@@ -1,6 +1,9 @@
 #include "hlt/game.hpp"
 #include "hlt/constants.hpp"
 #include "hlt/log.hpp"
+#include "types.hpp"
+#include "batcher.hpp"
+#include "model.hpp"
 
 #include <random>
 #include <ctime>
@@ -9,188 +12,6 @@
 
 using namespace std;
 using namespace hlt;
-
-struct StepResult {
-    double meanScore;
-    double meanSteps;
-};
-
-
-const float MAX_HALITE_ON_MAP = 1000;           //The maximum natural drop of halite on the map
-const float MAX_HALITE_ON_SHIP = 1000;          //The maximum halite a ship can hold
-const float MAX_SCORE_APPROXIMATE = 50000;      //A rough estimate of a "Max" score that we'll use for scaling our player's scores
-
-const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames to our neural network
-const int GAME_WIDTH = 32;                //The number of NxN input frames to our neural network
-const int GAME_HEIGHT = 32;                //The number of NxN input frames to our neural network
-
-struct Frame {
-public:
-    float state[NUMBER_OF_FRAMES][GAME_HEIGHT][GAME_WIDTH] = {};
-
-    // void debug_print() {
-    //     for(int i = 0; i < NUMBER_OF_FRAMES; i++){
-    //         std::cout << std::endl << std::endl << "FRAME: " << i << std::endl;
-
-    //         for(int j = 0; j < GAME_HEIGHT; j++) {
-    //             std::cout << std::endl << j << ": \t";
-    //             for(int k = 0; k < GAME_WIDTH; k++){
-    //                 std::cout << state[i][j][k] << " ";
-    //             }
-    //         }
-    //     }
-    // }
-};
-
-
-struct ModelOutput {
-    at::Tensor action;
-    at::Tensor log_prob;
-    at::Tensor value;
-};
-
-struct RolloutItem {
-    Frame state;
-    long action;
-    float value;
-    float log_prob;
-    float reward;
-    int done;
-    long playerId;
-};
-
-struct CompleteRolloutResult {
-    std::vector<RolloutItem> rollouts;
-    std::vector<long> scores;
-    std::vector<long> gameSteps;
-};
-
-struct ProcessedRolloutItem {
-    Frame state;
-    long action;
-    float log_prob;
-    float returns;
-    float advantage;
-};
-
-class Batcher {
-public:
-int batchSize;
-int numEntries;
-std::vector<ProcessedRolloutItem> data;
-std::vector<ProcessedRolloutItem>::iterator batchStart;
-std::vector<ProcessedRolloutItem>::iterator batchEnd;
-
-    Batcher(int batchSize, std::vector<ProcessedRolloutItem> data) {
-        this->batchSize = batchSize;
-        this->data = data;
-        this->numEntries = data.size();
-        this->reset();
-    }
-
-    void reset() {
-        this->batchStart = data.begin();
-        this->batchEnd = data.begin();
-        advance(batchEnd, batchSize);
-    }
-
-    bool end() {
-        return this->batchStart == this->data.end();
-    }
-
-    std::vector<ProcessedRolloutItem> next_batch(){
-        std::vector<ProcessedRolloutItem> batch;
-        batch.insert(batch.end(), batchStart, batchEnd);
-
-        batchStart = batchEnd; 
-
-        //Advance batchEnd to either the end of the next batch or
-        //to the end of the data, whichever comes first
-        for(int i = 0; i < batchSize; i++){
-            batchEnd = batchEnd + 1;
-            if(batchEnd == this->data.end()) {
-                break;
-            }
-        }
-
-        return batch;
-    }
-
-    void shuffle() {
-        std::random_shuffle(this->data.begin(), this->data.end());
-        this->reset();
-    }
-};
-
-
-struct ActorCriticNetwork : torch::nn::Module {
-public:
-
-    torch::Device device;
-
-    ActorCriticNetwork()
-    :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/7)),
-        conv2(torch::nn::Conv2dOptions(32, 64, /*kernel_size=*/3)),
-        conv3(torch::nn::Conv2dOptions(64, 64, /*kernel_size=*/3)),
-         fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 512),
-         fc2(512, 6),           //Actor head
-         fc3(512, 1),           //Critic head
-         device(torch::Device(torch::kCUDA))
-    {
-        register_module("conv1", conv1);
-        register_module("conv2", conv2);
-        register_module("conv3", conv3);
-        register_module("fc1", fc1);
-        register_module("fc2", fc2);
-        register_module("fc3", fc3);
-
-        torch::DeviceType device_type;
-        if (torch::cuda::is_available()) {
-            device_type = torch::kCUDA;
-        } else {
-            device_type = torch::kCPU;
-        }
-
-        device = torch::Device(device_type);
-        this->to(device);
-    }
-
-    ModelOutput forward(torch::Tensor x, torch::Tensor selected_action) {
-        x = x.to(this->device);
-        x = torch::relu(conv1->forward(x));
-        x = torch::relu(conv2->forward(x));
-        x = torch::relu(conv3->forward(x));
-        x = x.view({-1, 64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10)});
-        x = torch::relu(fc1->forward(x));
-
-        auto a = fc2->forward(x);
-        auto action_probabilities = torch::softmax(a, /*dim=*/1);
-
-        if(selected_action.numel() == 0) {
-            //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
-            //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-            selected_action = action_probabilities.multinomial(1);
-            // std::cout << a << std::endl;
-            // std::cout << action_probabilities << std::endl;
-        }
-        else {
-            selected_action = selected_action.to(device);
-        }
-
-        auto log_prob = action_probabilities.gather(1, selected_action).log();
-        auto value = fc3->forward(x);
-        //Return action, log_prob, value
-        ModelOutput output {selected_action, log_prob, value};
-        return output;
-  }
-
-    torch::nn::Conv2d conv1;
-    torch::nn::Conv2d conv2;
-    torch::nn::Conv2d conv3;
-    torch::nn::Linear fc1;
-    torch::nn::Linear fc2;
-    torch::nn::Linear fc3;
-};
 
 
 Frame parseGridIntoSlices(long playerId, hlt::Game &game) {
@@ -330,7 +151,7 @@ int main(int argc, char* argv[]) {
 
     Game game;
 
-    ActorCriticNetwork myModel;
+    ActorCriticNetwork myModel(/*training=*/false);
     myModel.to(torch::kCPU);
     torch::load(myModel.conv1, "9conv1.pt");
     torch::load(myModel.conv2, "9conv2.pt");
@@ -357,13 +178,6 @@ int main(int argc, char* argv[]) {
         vector<Command> command_queue;
 
         for (const auto& ship_iterator : me->ships) {
-            // shared_ptr<Ship> ship = ship_iterator.second;
-            // if (game_map->at(ship)->halite < constants::MAX_HALITE / 10 || ship->is_full()) {
-            //     Direction random_direction = ALL_CARDINALS[rng() % 4];
-            //     command_queue.push_back(ship->move(random_direction));
-            // } else {
-            //     command_queue.push_back(ship->stay_still());
-            // }
 
             // Parse the map into inputs for our neural network
             log::log("About to parse frames");
@@ -430,8 +244,41 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        if (game.turn_number <= 200 && me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
-            command_queue.push_back(me->shipyard->spawn());
+        if (me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
+
+            long factoryId = -1;
+            auto frames = parseGridIntoSlices(0, game);
+
+            //Zero out all cells except for where the spawn is
+            auto entityLocationFrame = frames.state[10];
+            for(int i = 0; i < GAME_HEIGHT; i++) {
+                for(int j = 0; j < GAME_WIDTH; j++) {
+                    entityLocationFrame[i][j] = 0;
+                }
+            }
+
+            auto shipyardPos = me->shipyard.get()->position;
+            entityLocationFrame[offset + shipyardPos.y][offset + shipyardPos.x] = 1;
+
+            //Set entire frame to zero as the spawn doesn't have any energy
+            auto entityEnergyFrame = frames.state[11];
+            for(int i = 0; i < GAME_HEIGHT; i++) {
+                for(int j = 0; j < GAME_WIDTH; j++) {
+                    entityEnergyFrame[i][j] = 0;
+                }
+            }
+
+            //Ask the neural network what to do now?
+            auto state = torch::from_blob(frames.state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH});
+            state = state.unsqueeze(0);
+            torch::Tensor emptyAction;
+            auto modelOutput = myModel.forward_spawn(state, emptyAction);
+
+            auto actionIndex = modelOutput.action.item<int64_t>();
+            if(actionIndex == 0) {
+                std::string command = "spawn";
+                command_queue.push_back(me->shipyard->spawn());
+            }
         }
 
         if (!game.end_turn(command_queue)) {
