@@ -159,6 +159,7 @@ int main(int argc, char* argv[]) {
     torch::load(myModel.fc1, "9fc1.pt");
     torch::load(myModel.fc2, "9fc2.pt");
     torch::load(myModel.fc3, "9fc3.pt");    
+    torch::load(myModel.fcSpawn, "9fcSpawn.pt");    
     myModel.to(torch::kCUDA);
 
     // At this point "game" variable is populated with initial map data.
