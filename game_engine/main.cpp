@@ -77,6 +77,7 @@ void ppo(Agent myAgent, uint numEpisodes, int iteration) {
                 torch::save(myAgent.myModel.fc1, std::to_string(iteration) + "fc1.pt");
                 torch::save(myAgent.myModel.fc2, std::to_string(iteration) + "fc2.pt");
                 torch::save(myAgent.myModel.fc3, std::to_string(iteration) + "fc3.pt");
+                torch::save(myAgent.myModel.fcSpawn, std::to_string(iteration) + "fcSpawn.pt");
                 //Now we move the model back to the GPU
                 myAgent.myModel.to(torch::kCUDA);
             }
@@ -108,6 +109,7 @@ void loadWeights(Agent agent) {
         torch::load(agent.myModel.fc1, "fc1.pt");
         torch::load(agent.myModel.fc2, "fc2.pt");
         torch::load(agent.myModel.fc3, "fc3.pt");
+        torch::load(agent.myModel.fcSpawn, "fcSpawn.pt");
     }
     catch (const std::exception& e) {
         std::cout << "Could not load models from disk. Starting from scratch" << std::endl;

@@ -155,6 +155,7 @@ CompleteRolloutResult generate_rollouts() {
     std::vector<RolloutItem> spawn_rollouts;
     std::vector<long> scores;
     std::vector<long> gameSteps;
+    const auto &constants = hlt::Constants::get();
 
     while(rollouts.size() < minimum_rollout_size) {
 
@@ -175,8 +176,6 @@ CompleteRolloutResult generate_rollouts() {
         hlt::Halite game(map, game_statistics, replay);
 
         game.initialize_game(numPlayers);
-
-        const auto &constants = hlt::Constants::get();
 
         game.turn_number = 1;
         while(true) {
@@ -352,7 +351,26 @@ CompleteRolloutResult generate_rollouts() {
                     rollouts.insert(rollouts.end(), rolloutsForCurrentGame[entityId].begin(), rolloutsForCurrentGame[entityId].end());
                 }
 
+                //Need to do the same thing for spawnRollouts
+                for(auto rolloutKeyValue : spawnRolloutsForCurrentGame) {
+                    auto entityId = rolloutKeyValue.first;
+                    auto entityRollout = rolloutKeyValue.second;
+                    auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
 
+                    //This seems backwards but we represent "Done" as 0 and "Not done" as 1
+                    lastRolloutItem.done = 0;
+                    if(lastRolloutItem.playerId == 0) {
+                        lastRolloutItem.reward = player1Score;
+                    }
+                    else {
+                        lastRolloutItem.reward = player2Score;
+                    }
+
+                    spawnRolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
+                    spawnRolloutsForCurrentGame[entityId].push_back(lastRolloutItem);
+
+                    spawn_rollouts.insert(spawn_rollouts.end(), spawnRolloutsForCurrentGame[entityId].begin(), spawnRolloutsForCurrentGame[entityId].end());
+                }
 
                 break;
             }
