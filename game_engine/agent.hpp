@@ -25,22 +25,23 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
 
     auto playerId = gameState.playerId;
     //Halite Location
-    auto halite_location = torch::tensor({GAME_HEIGHT, GAME_WIDTH});
-    auto steps_remaining = torch::tensor({GAME_HEIGHT, GAME_WIDTH});
+    //auto halite_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto steps_remaining = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     // //My global info
     auto my_ships = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto my_ships_halite = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto my_dropoffs = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
-    auto my_score = torch::tensor({GAME_HEIGHT, GAME_WIDTH});
+    auto my_score = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     //Enemy global info
     auto enemy_ships = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto enemy_ships_halite = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto enemy_dropoffs = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
-    auto enemy_score = torch::tensor({GAME_HEIGHT, GAME_WIDTH});
+    auto enemy_score = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
 
     //Ship specific information
     auto entity_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
-    auto entity_energy = torch::tensor({GAME_HEIGHT, GAME_WIDTH});
+    auto entity_energy = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+
     entity_location[gameState.entityY][gameState.entityX] = 1;
     entity_energy[gameState.entityY][gameState.entityX] = gameState.halite_on_ship;
 
@@ -55,10 +56,12 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
         enemy_score.fill_(gameState.scores[0]);
     }
 
+    float haliteLocationArray[GAME_HEIGHT][GAME_WIDTH];
+
     for(std::size_t y = 0; y < GAME_HEIGHT; y++) {
         for(std::size_t x = 0; x < GAME_WIDTH; x++) {
             auto cell = gameState.position[y][x];
-            halite_location[y][x] = cell.halite_on_ground;
+            haliteLocationArray[y][x] = cell.halite_on_ground;
 
             if(cell.shipId == playerId) {
                 my_ships[y][x] = 1;
@@ -78,6 +81,7 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
         }
     }
 
+    auto halite_location = torch::from_blob(haliteLocationArray, {GAME_HEIGHT, GAME_WIDTH});
     std::vector<torch::Tensor> frames {halite_location, steps_remaining,
     my_ships, my_ships_halite, my_dropoffs, my_score,
     enemy_ships, enemy_ships_halite, enemy_dropoffs, enemy_score,
@@ -93,7 +97,7 @@ GameState parseGameIntoGameState(long playerId, hlt::Halite &game, int entityY, 
 
     gameState.entityY = entityY;
     gameState.entityX = entityX;
-    gameState.halite_on_ship = entityEnergy;
+    gameState.halite_on_ship = (entityEnergy / MAX_HALITE_ON_SHIP) - 0.5;
     gameState.playerId = playerId;
 
     int no_of_rows = GAME_HEIGHT;
