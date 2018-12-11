@@ -4,13 +4,15 @@
 #include <cstdlib>
 #include <torch/torch.h>
 
+const int NUMBER_OF_PLAYERS = 2;                //The number of players in the game
+
 const float MAX_HALITE_ON_MAP = 1000;           //The maximum natural drop of halite on the map
 const float MAX_HALITE_ON_SHIP = 1000;          //The maximum halite a ship can hold
 const float MAX_SCORE_APPROXIMATE = 50000;      //A rough estimate of a "Max" score that we'll use for scaling our player's scores
 
 const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames to our neural network
-const int GAME_WIDTH = 32;                //The number of NxN input frames to our neural network
-const int GAME_HEIGHT = 32;                //The number of NxN input frames to our neural network
+const int GAME_WIDTH = 32;                      //The number of NxN input frames to our neural network
+const int GAME_HEIGHT = 32;                     //The number of NxN input frames to our neural network
 
 struct StepResult {
     double meanScore;
@@ -18,22 +20,29 @@ struct StepResult {
     double meanLoss;
 };
 
-struct Frame {
-public:
-    float state[NUMBER_OF_FRAMES][GAME_HEIGHT][GAME_WIDTH] = {};
+struct Cell {
+    //Map info
+    float halite_on_ground = 0.0;
+    //Ship info
+    long shipOwner = -1;
+    long shipId = -1;
+    float halite_on_ship = 0.0;
+    //Structure Info
+    long structureOwner = -1;
+    bool dropOffPresent = false;
+    bool spawnPresent = false;
+};
 
-    void debug_print() {
-        for(int i = 0; i < NUMBER_OF_FRAMES; i++){
-            std::cout << std::endl << std::endl << "FRAME: " << i << std::endl;
+/*A compressed representation of the state of the game from the perspective of a ship at any moment in time*/
+struct GameState {
+    Cell position[GAME_HEIGHT][GAME_WIDTH] = {};
+    float scores[NUMBER_OF_PLAYERS] = {};
+    float steps_remaining = -1;
 
-            for(int j = 0; j < GAME_HEIGHT; j++) {
-                std::cout << std::endl << j << ": \t";
-                for(int k = 0; k < GAME_WIDTH; k++){
-                    std::cout << state[i][j][k] << " ";
-                }
-            }
-        }
-    }
+    int entityX = -1;
+    int entityY = -1;
+    float halite_on_ship;
+    long playerId;
 };
 
 struct ModelOutput {
@@ -43,7 +52,7 @@ struct ModelOutput {
 };
 
 struct RolloutItem {
-    Frame state;
+    GameState state;
     long action;
     float value;
     float log_prob;
@@ -60,7 +69,7 @@ struct CompleteRolloutResult {
 };
 
 struct ProcessedRolloutItem {
-    Frame state;
+    GameState state;
     long action;
     float log_prob;
     float returns;
