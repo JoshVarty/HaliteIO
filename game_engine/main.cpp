@@ -103,13 +103,13 @@ void ppo(Agent myAgent, uint numEpisodes, int iteration) {
 void loadWeights(Agent agent) {
     try {
         agent.myModel.to(torch::kCPU);
-        torch::load(agent.myModel.conv1, "conv1.pt");
-        torch::load(agent.myModel.conv2, "conv2.pt");
-        torch::load(agent.myModel.conv3, "conv3.pt");
-        torch::load(agent.myModel.fc1, "fc1.pt");
-        torch::load(agent.myModel.fc2, "fc2.pt");
-        torch::load(agent.myModel.fc3, "fc3.pt");
-        torch::load(agent.myModel.fcSpawn, "fcSpawn.pt");
+        torch::load(agent.myModel.conv1, "0conv1.pt");
+        torch::load(agent.myModel.conv2, "0conv2.pt");
+        torch::load(agent.myModel.conv3, "0conv3.pt");
+        torch::load(agent.myModel.fc1, "0fc1.pt");
+        torch::load(agent.myModel.fc2, "0fc2.pt");
+        torch::load(agent.myModel.fc3, "0fc3.pt");
+        torch::load(agent.myModel.fcSpawn, "0fcSpawn.pt");
     }
     catch (const std::exception& e) {
         std::cout << "Could not load models from disk. Starting from scratch" << std::endl;
@@ -175,13 +175,13 @@ int main(int argc, char *argv[]) {
     float learningRounds = 3;
     float mini_batch_number = 32;
     float ppo_clip = 0.2;
-    float minimum_rollout_size = 1000;
+    float minimum_rollout_size = 2000;
     float learning_rate = 0.0000001;
 
     Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+    loadWeights(agent);       
     ppo(agent, numEpisodes, numProcessed);
 
-    //loadWeights(agent);       Optionally load the network weights from disk
 
     return 0;
 }
