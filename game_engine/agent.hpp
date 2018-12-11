@@ -253,7 +253,6 @@ CompleteRolloutResult generate_rollouts() {
                 auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
                 if(player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
                     long factoryId = -1;
-
                     auto frames = parseGridIntoSlices(0, game);
 
                     //Zero out all cells except for where the spawn is
@@ -308,11 +307,6 @@ CompleteRolloutResult generate_rollouts() {
             for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
                 auto entityId = rolloutKeyValue.first;
                 auto rolloutItem = rolloutKeyValue.second;
-
-                //If this ship collided on this turn, penalize it
-                if(std::find(game.store.selfCollidedEntities.begin(), game.store.selfCollidedEntities.end(), entityId) != game.store.selfCollidedEntities.end()) {
-                    rolloutItem.reward = rolloutItem.reward - 0.05;
-                }
 
                 rolloutsForCurrentGame[entityId].push_back(rolloutItem);
             }
