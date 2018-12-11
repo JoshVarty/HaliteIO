@@ -546,13 +546,8 @@ public:
         scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
         gameSteps.insert(gameSteps.end(), rolloutResult.gameSteps.begin(), rolloutResult.gameSteps.end());
 
-        std::cout << "About to process spawn rollout" << std::endl;
         auto processed_spawn_rollout = process_rollouts(rolloutResult.spawn_rollouts);
-        std::cout << "Processed spawn rollout" << std::endl;
-        //NOT TRAINING THIS PROPERLY BECAUSE YOURE NOT USING FORWARD_SPAWN
-        std::cout << "About to train spawn rollout" << std::endl;
         auto spawnLosses = train_network(processed_spawn_rollout, true);
-        std::cout << "Trained spawn rollout" << std::endl;
 
         auto processed_ship_rollout = process_rollouts(rolloutResult.rollouts);
         auto currentLosses = train_network(processed_ship_rollout, false);
