@@ -14,13 +14,90 @@ using namespace std;
 using namespace hlt;
 
 
-Frame parseGridIntoSlices(long playerId, hlt::Game &game) {
+
+torch::Tensor convertGameStateToTensor(GameState gameState) {
+
+    auto playerId = gameState.playerId;
+    //Halite Location
+    //auto halite_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto steps_remaining = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    // //My global info
+    auto my_ships = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto my_ships_halite = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto my_dropoffs = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto my_score = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    //Enemy global info
+    auto enemy_ships = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto enemy_ships_halite = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto enemy_dropoffs = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto enemy_score = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+
+    //Ship specific information
+    auto entity_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+    auto entity_energy = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+
+    entity_location[gameState.entityY][gameState.entityX] = 1;
+    entity_energy[gameState.entityY][gameState.entityX] = gameState.halite_on_ship;
+
+    steps_remaining.fill_(gameState.steps_remaining);
+
+    //TODO: Generalize for more players
+    if(playerId == 0) {
+        my_score.fill_(gameState.scores[0]);
+        enemy_score.fill_(gameState.scores[1]);
+    } else {
+        my_score.fill_(gameState.scores[1]);
+        enemy_score.fill_(gameState.scores[0]);
+    }
+
+    float haliteLocationArray[GAME_HEIGHT][GAME_WIDTH];
+
+    for(std::size_t y = 0; y < GAME_HEIGHT; y++) {
+        for(std::size_t x = 0; x < GAME_WIDTH; x++) {
+            auto cell = gameState.position[y][x];
+            haliteLocationArray[y][x] = cell.halite_on_ground;
+
+            if(cell.shipId == playerId) {
+                my_ships[y][x] = 1;
+                my_ships_halite[y][x] = cell.halite_on_ship;
+            }
+            else if (cell.shipId != -1) {
+                enemy_ships[y][x] = 1;
+                enemy_ships_halite[y][x] = cell.halite_on_ship;
+            }
+
+            if(cell.structureOwner == playerId) {
+                my_dropoffs[y][x] = 1;
+            }
+            else if (cell.structureOwner != -1) {
+                enemy_dropoffs[y][x] = 1;
+            }
+        }
+    }
+
+    auto halite_location = torch::from_blob(haliteLocationArray, {GAME_HEIGHT, GAME_WIDTH});
+    std::vector<torch::Tensor> frames {halite_location, steps_remaining,
+    my_ships, my_ships_halite, my_dropoffs, my_score,
+    enemy_ships, enemy_ships_halite, enemy_dropoffs, enemy_score,
+    entity_location, entity_energy};
+
+    auto stateTensor = torch::stack(frames);
+    return stateTensor;
+}
+
+
+GameState parseGameIntoGameState(long playerId, hlt::Game &game, int entityY, int entityX, float entityEnergy) {
+
+    GameState gameState;
+
+    gameState.entityY = entityY;
+    gameState.entityX = entityX;
+    gameState.halite_on_ship = (entityEnergy / MAX_HALITE_ON_SHIP) - 0.5;
+    gameState.playerId = playerId;
 
     int no_of_rows = GAME_HEIGHT;
     int no_of_cols = GAME_WIDTH;
-    int offset = 0;
 
-    //int numRows = game.map.grid.size();
     int numRows = game.game_map.get()->cells.size();
     int totalSteps = 0;
     if (numRows == 64) {
@@ -39,43 +116,22 @@ Frame parseGridIntoSlices(long playerId, hlt::Game &game) {
         totalSteps = 401;
     }
 
-    //Board info
-    Frame myFrame;
-    auto frameData = myFrame.state;
-    auto halite_locations = frameData[0];   // Range from [-0.5, ~0.5]
-    auto steps_remaining = frameData[1];    // Range from [-0.5, 0.5]
-    //My global info
-    auto my_ships = frameData[2];           // Range from [0,1]
-    auto my_ships_halite = frameData[3];    // Range from [-0.5, 0.5]
-    auto my_dropoffs = frameData[4];        // Range from [0, 1]
-    auto my_score = frameData[5];           // Range from [-0.5, 0.5]
-    //Enemy global info
-    auto enemy_ships = frameData[6];        // Range from [0,1]
-    auto enemy_ships_halite = frameData[7]; // Range from [-0.5, 0.5]
-    auto enemy_dropoffs = frameData[8];     // Range from [0,1]
-    auto enemy_score = frameData[9];        // Range from [-0.5, 0.5]
-
-    for(auto row : game.game_map.get()->cells) {
+   int cellY = 0;
+   for(auto row : game.game_map.get()->cells) {
         for (auto cell: row) {
-            auto x = offset + cell.position.x;
-            auto y = offset + cell.position.y;
+            auto x  = cell.position.x;
+            auto y = cell.position.y;
 
             auto scaled_halite = (cell.halite / MAX_HALITE_ON_MAP) - 0.5;
-            halite_locations[y][x] = scaled_halite;
+            gameState.position[y][x].halite_on_ground = scaled_halite;
 
-            if(cell.ship.get() != nullptr) {
+            if(cell.is_occupied()) {
                 //There is a ship here
-                //auto entity = game.store.get_entity(cell.entity);
                 auto entity = cell.ship.get();
 
-                if(entity->owner == playerId) {
-                    my_ships_halite[y][x] = (entity->halite / MAX_HALITE_ON_SHIP) - 0.5;
-                    my_ships[y][x] = 1;
-                }
-                else {
-                    enemy_ships_halite[y][x] = (entity->halite / MAX_HALITE_ON_SHIP) - 0.5;
-                    enemy_ships[y][x] = 2;
-                }
+                gameState.position[y][x].halite_on_ship = (entity->halite / MAX_HALITE_ON_SHIP) - 0.5;
+                gameState.position[y][x].shipId = entity->id;
+                gameState.position[y][x].shipOwner = entity->owner;
             }
         }
     }
@@ -85,59 +141,32 @@ Frame parseGridIntoSlices(long playerId, hlt::Game &game) {
         auto player = playerPtr.get();
         //auto player = playerPair.second;
         auto spawn = player->shipyard.get();
-        auto x = offset + spawn->position.x;
-        auto y = offset + spawn->position.y;
 
-        if(player->id == playerId) {
-            //We mark our spawn as a 'dropoff' because it can also be used as one
-            my_dropoffs[y][x] = 1;
-        }
-        else {
-            //We mark the enemy spawn as a 'dropoff' because it can also be used as one
-            enemy_dropoffs[y][x] = 2;
-        }
+        //We consider spawn/factories to be both dropoffs and spawns
+        gameState.position[spawn->position.y][spawn->position.x].dropOffPresent = true;
+        gameState.position[spawn->position.y][spawn->position.x].spawnPresent = true;
+        gameState.position[spawn->position.y][spawn->position.x].structureOwner = player->id;
 
-        for(auto dropoff : player->dropoffs) {
-            if(player->id == playerId) {
-                my_dropoffs[y][x] = 1;
-            }
-            else {
-                //We mark the enemy spawn as a 'dropoff' because it can also be used as one
-                enemy_dropoffs[y][x] = 2;
-            }
+        for(auto dropoffPair : player->dropoffs) {
+            auto dropoff = dropoffPair.second.get();
+            gameState.position[dropoff->position.y][dropoff->position.x].dropOffPresent = true;
+            gameState.position[dropoff->position.y][dropoff->position.x].structureOwner = player->id;
         }
 
         // Player score
         auto score = player->halite;
         auto floatScore = (float)score;
-        if(player->id == playerId) {
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++){
-                    my_score[i][j] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
-                }
-            }
-        }
-        else {
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++){
-                    enemy_score[i][j] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
-                }
-            }
-        }
-
-        //Steps remaining
-        auto steps_remaining_value = totalSteps - game.turn_number + 1;
-        if(player->id == playerId) {
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++){
-                    steps_remaining[i][j] = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
-                }
-            }
-        }
+        gameState.scores[player->id] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
     }
 
-    return myFrame;
+    //Steps remaining
+    auto steps_remaining_value = totalSteps - game.turn_number + 1;
+    auto scaled_steps = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
+    gameState.steps_remaining = scaled_steps;
+
+    return gameState;
 }
+
 
 int main(int argc, char* argv[]) {
 
@@ -180,33 +209,15 @@ int main(int argc, char* argv[]) {
 
         for (const auto& ship_iterator : me->ships) {
 
-            // Parse the map into inputs for our neural network
-            log::log("About to parse frames");
-            auto frames = parseGridIntoSlices(me->id, game);
-            log::log("Done parsing frames");
             // Parse current ship into frames for our neural network
             shared_ptr<Ship> ship = ship_iterator.second;
 
-            //Zero out all cells except for where our current unit is
-            auto entityLocationFrame = frames.state[10];
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++) {
-                    entityLocationFrame[i][j] = 0;
-                }
-            }
-            entityLocationFrame[offset + ship->position.y][offset + ship->position.x] = 1;
-
-            //Set entire frame to the score of the current unit
-            auto entityEnergyFrame = frames.state[11];
-            float energy = ship->halite;
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++) {
-                    entityEnergyFrame[i][j] = (energy / MAX_HALITE_ON_SHIP) - 0.5;
-                }
-            }
-
-            //Conver input frames into tensor state
-            auto state = torch::from_blob(frames.state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH});
+            // Parse the map into inputs for our neural network
+            log::log("About to parse frames");
+            auto gameState = parseGameIntoGameState(me->id, game, ship->position.y, ship->position.x, ship->halite);
+            log::log("Done parsing frames");
+            auto state = convertGameStateToTensor(gameState);
+            //Convert input frames into tensor state
             state = state.unsqueeze(0);
             torch::Tensor emptyAction;
             auto result = myModel.forward(state, emptyAction);
@@ -248,29 +259,11 @@ int main(int argc, char* argv[]) {
         if (me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
 
             long factoryId = -1;
-            auto frames = parseGridIntoSlices(0, game);
 
-            //Zero out all cells except for where the spawn is
-            auto entityLocationFrame = frames.state[10];
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++) {
-                    entityLocationFrame[i][j] = 0;
-                }
-            }
+            auto gameState = parseGameIntoGameState(me->id, game, me->shipyard->position.y, me->shipyard->position.x, me->halite);
+            log::log("Done parsing frames");
+            auto state = convertGameStateToTensor(gameState);
 
-            auto shipyardPos = me->shipyard.get()->position;
-            entityLocationFrame[offset + shipyardPos.y][offset + shipyardPos.x] = 1;
-
-            //Set entire frame to zero as the spawn doesn't have any energy
-            auto entityEnergyFrame = frames.state[11];
-            for(int i = 0; i < GAME_HEIGHT; i++) {
-                for(int j = 0; j < GAME_WIDTH; j++) {
-                    entityEnergyFrame[i][j] = 0;
-                }
-            }
-
-            //Ask the neural network what to do now?
-            auto state = torch::from_blob(frames.state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH});
             state = state.unsqueeze(0);
             torch::Tensor emptyAction;
             auto modelOutput = myModel.forward_spawn(state, emptyAction);
