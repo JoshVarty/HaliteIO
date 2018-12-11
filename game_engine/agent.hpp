@@ -10,9 +10,9 @@
 #include "Halite.hpp"
 #include "Replay.hpp"
 #include "Enumerated.hpp"
-#include "types.hpp"
-#include "batcher.hpp"
-#include "model.hpp"
+#include "../types.hpp"
+#include "../batcher.hpp"
+#include "../model.hpp"
 
 #include <torch/torch.h>
 
@@ -429,14 +429,14 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
     return processed_rollouts;
 }
 
-std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
+std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rollout, bool spawnRollout) {
 
     std::vector<float> losses;
     Batcher batcher(std::min(this->mini_batch_number, processed_rollout.size()), processed_rollout);
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
         batcher.shuffle();
-        Frame sampled_states[this->mini_batch_number];
+
         float sampled_actions[this->mini_batch_number];
         float sampled_log_probs_old[this->mini_batch_number];
         float sampled_returns[this->mini_batch_number];
@@ -444,11 +444,9 @@ std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rol
 
         while(!batcher.end()) {
             auto nextBatch = batcher.next_batch();
-
             auto batchSize = (long)(nextBatch.size());
 
             for(int i = 0; i < batchSize; i++) {
-                sampled_states[i] = nextBatch[i].state;
                 sampled_actions[i] = nextBatch[i].action;
                 sampled_log_probs_old[i] = nextBatch[i].log_prob;
                 sampled_returns[i] = nextBatch[i].returns;
@@ -458,13 +456,20 @@ std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rol
             //Create stack of Tensors as input to neural network
             std::vector<at::Tensor> stateList;
             for(int i = 0; i < batchSize; i++) {
-                stateList.push_back(torch::from_blob(sampled_states[i].state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH}));
+                stateList.push_back(torch::from_blob(nextBatch[i].state.state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH}));
             }
 
             auto batchInput = torch::stack(stateList);
             auto actionsTensor = torch::from_blob(sampled_actions, { batchSize });
             actionsTensor = actionsTensor.toType(torch::ScalarType::Long).unsqueeze(-1);
-            auto modelOutput = this->myModel.forward(batchInput, actionsTensor);
+            ModelOutput modelOutput;
+
+            if(spawnRollout) {
+                modelOutput = this->myModel.forward_spawn(batchInput, actionsTensor);
+            }
+            else{
+                modelOutput = this->myModel.forward(batchInput, actionsTensor);
+            }
             auto log_probs = modelOutput.log_prob;
             auto values = modelOutput.value;
 
@@ -489,7 +494,7 @@ std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rol
             optimizer.step();
 
             //Keep track of losses
-            losses.push_back(totalLoss.item<float_t>());
+            //losses.push_back(totalLoss.item<float_t>());
         }
     }
 
@@ -513,6 +518,7 @@ public:
     torch::optim::Adam optimizer;
 
     Agent(float discount_rate, float tau, float learningRounds, float mini_batch_number, float ppo_clip, float minimum_rollout_size, float learning_rate):
+        myModel(true),
         device(torch::Device(torch::kCUDA)),
         discount_rate(discount_rate),
         tau(tau),
@@ -544,12 +550,17 @@ public:
         auto rolloutResult = generate_rollouts();
         scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
         gameSteps.insert(gameSteps.end(), rolloutResult.gameSteps.begin(), rolloutResult.gameSteps.end());
-        
+
+        std::cout << "About to process spawn rollout" << std::endl;
         auto processed_spawn_rollout = process_rollouts(rolloutResult.spawn_rollouts);
-        auto spawnLosses = train_network(processed_spawn_rollout);
+        std::cout << "Processed spawn rollout" << std::endl;
+        //NOT TRAINING THIS PROPERLY BECAUSE YOURE NOT USING FORWARD_SPAWN
+        std::cout << "About to train spawn rollout" << std::endl;
+        auto spawnLosses = train_network(processed_spawn_rollout, true);
+        std::cout << "Trained spawn rollout" << std::endl;
 
         auto processed_ship_rollout = process_rollouts(rolloutResult.rollouts);
-        auto currentLosses = train_network(processed_ship_rollout);
+        auto currentLosses = train_network(processed_ship_rollout, false);
 
         StepResult result;
         result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 

@@ -153,13 +153,13 @@ int main(int argc, char* argv[]) {
 
     ActorCriticNetwork myModel(/*training=*/false);
     myModel.to(torch::kCPU);
-    torch::load(myModel.conv1, "9conv1.pt");
-    torch::load(myModel.conv2, "9conv2.pt");
-    torch::load(myModel.conv3, "9conv3.pt");
-    torch::load(myModel.fc1, "9fc1.pt");
-    torch::load(myModel.fc2, "9fc2.pt");
-    torch::load(myModel.fc3, "9fc3.pt");    
-    torch::load(myModel.fcSpawn, "9fcSpawn.pt");    
+    torch::load(myModel.conv1, "0conv1.pt");
+    torch::load(myModel.conv2, "0conv2.pt");
+    torch::load(myModel.conv3, "0conv3.pt");
+    torch::load(myModel.fc1, "0fc1.pt");
+    torch::load(myModel.fc2, "0fc2.pt");
+    torch::load(myModel.fc3, "0fc3.pt");    
+    torch::load(myModel.fcSpawn, "0fcSpawn.pt");    
     myModel.to(torch::kCUDA);
 
     // At this point "game" variable is populated with initial map data.

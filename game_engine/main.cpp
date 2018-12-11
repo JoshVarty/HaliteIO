@@ -18,9 +18,9 @@
 #include <torch/torch.h>
 
 //My files
-#include "types.hpp"
-#include "batcher.hpp"
-#include "model.hpp"
+#include "../types.hpp"
+#include "../batcher.hpp"
+#include "../model.hpp"
 #include "agent.hpp"
 
 void ppo(Agent myAgent, uint numEpisodes, int iteration) {

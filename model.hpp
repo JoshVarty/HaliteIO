@@ -2,7 +2,7 @@
 #define MODEL_H
 
 #include <torch/torch.h>
-#include <types.hpp>
+#include "types.hpp"
 
 
 struct ActorCriticNetwork : torch::nn::Module {
