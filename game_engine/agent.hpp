@@ -333,7 +333,6 @@ CompleteRolloutResult generate_rollouts() {
                     }
 
                     rolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
-                    rolloutsForCurrentGame[entityId].push_back(lastRolloutItem);
 
                     rollouts.insert(rollouts.end(), rolloutsForCurrentGame[entityId].begin(), rolloutsForCurrentGame[entityId].end());
                 }
@@ -354,7 +353,6 @@ CompleteRolloutResult generate_rollouts() {
                     }
 
                     spawnRolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
-                    spawnRolloutsForCurrentGame[entityId].push_back(lastRolloutItem);
 
                     spawn_rollouts.insert(spawn_rollouts.end(), spawnRolloutsForCurrentGame[entityId].begin(), spawnRolloutsForCurrentGame[entityId].end());
                 }
@@ -422,9 +420,12 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
     return processed_rollouts;
 }
 
-std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rollout, bool spawnRollout) {
+TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout, bool spawnRollout) {
 
+    std::vector<float> value_losses;
+    std::vector<float> policy_losses;
     std::vector<float> losses;
+
     Batcher batcher(std::min(this->mini_batch_number, processed_rollout.size()), processed_rollout);
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
@@ -467,6 +468,7 @@ std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rol
             }
             auto log_probs = modelOutput.log_prob;
             auto values = modelOutput.value;
+            auto entropy = modelOutput.entropy;
 
             auto sampled_advantages_tensor = torch::from_blob(sampled_advantages, { batchSize, 1}).to(device);
             auto ratio = (log_probs - torch::from_blob(sampled_log_probs_old, { batchSize, 1}).to(device)).exp();
@@ -474,27 +476,32 @@ std::vector<float> train_network(std::vector<ProcessedRolloutItem> processed_rol
             auto obj_clipped = ratio.clamp(1.0 - ppo_clip, 1.0 + ppo_clip) * sampled_advantages_tensor;
             auto policy_loss = -torch::min(obj, obj_clipped).mean();
 
-            auto policy_loss_float = policy_loss.item<float>();
-
             // TODO: Why do they do 0.5?
             auto sampled_returns_tensor = torch::from_blob(sampled_returns, {batchSize, 1}).to(device);
+            // for(auto i = 0; i < batchSize; i++){
+            //     std::cout << sampled_returns[i] << std::endl;
+            // }
+
             auto value_loss = 0.5 * (sampled_returns_tensor - values).pow(2).mean();
-            auto value_loss_float = value_loss.item<float>();
+            auto entropy_loss = entropy_weight * entropy.mean();
 
             optimizer.zero_grad();
-            auto totalLoss = policy_loss + value_loss;
-            //std::cout << totalLoss << std::endl;
+            auto totalLoss = policy_loss - entropy_loss + value_loss;
+
             totalLoss.backward();
             //TODO: Can we use gradient clipping?
             optimizer.step();
 
             //Keep track of losses
-            //losses.push_back(totalLoss.item<float_t>());
+            losses.push_back(totalLoss.item<float_t>());
+            value_losses.push_back(value_loss.item<float_t>());
+            policy_losses.push_back(policy_loss.item<float_t>());
         }
     }
 
     //std::cout << "Finished learning step" << std::endl;
-    return losses;
+    TrainingResult results { losses, value_losses, policy_losses};
+    return results;
 }
 
 public:
@@ -509,10 +516,11 @@ public:
     //int gradient_clip;
     std::size_t minimum_rollout_size;       //Minimum number of rollouts we accumulate before training the network
     float learning_rate;            //Rate at which the network learns
+    float entropy_weight;
     
     torch::optim::Adam optimizer;
 
-    Agent(float discount_rate, float tau, float learningRounds, float mini_batch_number, float ppo_clip, float minimum_rollout_size, float learning_rate):
+    Agent(float discount_rate, float tau, float learningRounds, float mini_batch_number, float ppo_clip, float minimum_rollout_size, float learning_rate, float entropy_weight):
         myModel(true),
         device(torch::Device(torch::kCUDA)),
         discount_rate(discount_rate),
@@ -522,6 +530,7 @@ public:
         ppo_clip(ppo_clip),
         minimum_rollout_size(minimum_rollout_size),
         learning_rate(learning_rate),
+        entropy_weight(entropy_weight),
         optimizer(myModel.parameters(), torch::optim::AdamOptions(learning_rate))
     {
         myModel.to(device);
@@ -541,6 +550,8 @@ public:
         std::vector<long> scores;
         std::vector<long> gameSteps;
         std::vector<float> losses;
+        std::vector<float> policyLosses;
+        std::vector<float> valueLosses;
 
         auto rolloutResult = generate_rollouts();
         scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
@@ -555,7 +566,9 @@ public:
         StepResult result;
         result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 
         result.meanSteps = std::accumulate(gameSteps.begin(), gameSteps.end(), 0.0) / gameSteps.size();
-        result.meanLoss = std::accumulate(currentLosses.begin(), currentLosses.end(), 0.0) / currentLosses.size();
+        result.meanLoss = std::accumulate(currentLosses.losses.begin(), currentLosses.losses.end(), 0.0) / currentLosses.losses.size();
+        result.meanValueLoss = std::accumulate(currentLosses.valueLosses.begin(), currentLosses.valueLosses.end(), 0.0) / currentLosses.valueLosses.size();
+        result.meanPolicyLoss = std::accumulate(currentLosses.policyLosses.begin(), currentLosses.policyLosses.end(), 0.0) / currentLosses.policyLosses.size();
 
         return result;
     }

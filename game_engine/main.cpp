@@ -29,9 +29,14 @@ void ppo(Agent myAgent, uint numEpisodes, int iteration) {
     std::vector<double> allScores;
     std::vector<double> allGameSteps;
     std::vector<double> allLosses;
+    std::vector<double> allPolicyLosses;
+    std::vector<double> allValueLosses;
+
     std::deque<double> lastHundredScores;
     std::deque<double> lastHundredSteps;
     std::deque<double> lastHundredLosses;
+    std::deque<double> lastHundredValueLosses;
+    std::deque<double> lastHundredPolicyLosses;
 
     for (uint i = 1; i < numEpisodes + 1; i++) {
 
@@ -39,10 +44,15 @@ void ppo(Agent myAgent, uint numEpisodes, int iteration) {
         allScores.push_back(result.meanScore);
         allGameSteps.push_back(result.meanSteps);
         allLosses.push_back(result.meanLoss);
+
+        allValueLosses.push_back(result.meanValueLoss);
+        allPolicyLosses.push_back(result.meanPolicyLoss);
         //Keep track of the last 10 scores
         lastHundredScores.push_back(result.meanScore);
         lastHundredSteps.push_back(result.meanSteps);
         lastHundredLosses.push_back(result.meanLoss);
+        lastHundredValueLosses.push_back(result.meanValueLoss);
+        lastHundredPolicyLosses.push_back(result.meanPolicyLoss);
         if(lastHundredScores.size() > 50) {
             lastHundredScores.pop_front();
         }
@@ -52,16 +62,26 @@ void ppo(Agent myAgent, uint numEpisodes, int iteration) {
         if(lastHundredLosses.size() > 50) {
             lastHundredLosses.pop_front();
         }
+        if(lastHundredValueLosses.size() > 50) {
+            lastHundredValueLosses.pop_front();
+        }
+        if(lastHundredPolicyLosses.size() > 50) {
+            lastHundredPolicyLosses.pop_front();
+        }
 
         if (i % 50 == 0) {
             double meanScore = std::accumulate(lastHundredScores.begin(), lastHundredScores.end(), 0.0) / lastHundredScores.size();
             double meanGameSteps = std::accumulate(lastHundredSteps.begin(), lastHundredSteps.end(), 0.0) / lastHundredSteps.size();
             double meanLoss = std::accumulate(lastHundredLosses.begin(), lastHundredLosses.end(), 0.0) / lastHundredLosses.size();
+            double meanValueLoss = std::accumulate(lastHundredValueLosses.begin(), lastHundredValueLosses.end(), 0.0) / lastHundredValueLosses.size();
+            double meanPolicyLoss = std::accumulate(lastHundredPolicyLosses.begin(), lastHundredPolicyLosses.end(), 0.0) / lastHundredPolicyLosses.size();
 
             //Every 50 episodes, display the mean reward
             std::cout << "Mean score at step: " << i << ": " << meanScore << std::endl;
             std::cout << "Mean number of gamesteps at step: " << i << ": " << meanGameSteps << std::endl;
             std::cout << "Mean loss at step: " << i << ": " << meanLoss << std::endl;
+            std::cout << "Mean value loss at step: " << i << ": " << meanValueLoss << std::endl;
+            std::cout << "Mean policy loss at step: " << i << ": " << meanPolicyLoss << std::endl;
 
             //If our network is improving, save the current weights
             if(meanGameSteps > bestNumSteps || meanScore > bestMean) {
@@ -130,6 +150,7 @@ void runGridSearch() {
     double tau = 0.95;                  //
     double ppo_clip = 0.2;              //
     int gradient_clip = 5;              //Clip gradient to try to prevent unstable learning
+    float entropy_weight = 0.01;              //Clip gradient to try to prevent unstable learning
 
     int numProcessed = 0;
     for(auto discount_rate : discount_rates) {
@@ -148,7 +169,7 @@ void runGridSearch() {
 
                             int numEpisodes = 1000;
                             std::cout << "NumProccesed: " << numProcessed << std::endl;
-                            Agent agent(discount_rate, tau, learning_round, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+                            Agent agent(discount_rate, tau, learning_round, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate, entropy_weight);
                             ppo(agent, numEpisodes, numProcessed);
                         }
                         catch (const std::exception& e) {
@@ -167,18 +188,19 @@ int main(int argc, char *argv[]) {
 
     //runGridSearch();
 
-    int numEpisodes = 2000;
+    int numEpisodes = 10000;
     int numProcessed = 0;
 
     float discount_rate = 0.99;
     float tau = 0.95;
-    float learningRounds = 3;
+    float learningRounds = 2;
     float mini_batch_number = 32;
     float ppo_clip = 0.2;
-    float minimum_rollout_size = 2000;
+    float minimum_rollout_size = 3000;
     float learning_rate = 0.0000001;
+    float entropy_weight = 0.01;
 
-    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate);
+    Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate, entropy_weight);
     loadWeights(agent);       
     ppo(agent, numEpisodes, numProcessed);
 

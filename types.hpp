@@ -14,10 +14,18 @@ const int NUMBER_OF_FRAMES = 12;                //The number of NxN input frames
 const int GAME_WIDTH = 32;                      //The number of NxN input frames to our neural network
 const int GAME_HEIGHT = 32;                     //The number of NxN input frames to our neural network
 
+struct TrainingResult {
+    std::vector<float> losses;
+    std::vector<float> valueLosses;
+    std::vector<float> policyLosses;
+};
+
 struct StepResult {
     double meanScore;
     double meanSteps;
     double meanLoss;
+    double meanPolicyLoss;
+    double meanValueLoss;
 };
 
 struct Cell {
