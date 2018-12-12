@@ -49,6 +49,7 @@ struct ModelOutput {
     at::Tensor action;
     at::Tensor log_prob;
     at::Tensor value;
+    at::Tensor entropy;
 };
 
 struct RolloutItem {

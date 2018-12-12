@@ -12,11 +12,11 @@ public:
     :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/7)),
         conv2(torch::nn::Conv2dOptions(32, 64, /*kernel_size=*/3)),
         conv3(torch::nn::Conv2dOptions(64, 64, /*kernel_size=*/3)),
-         fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 512),
-         fc2(512, 6),               //Actor head - Ship
-         fc3(512, 1),               //Critic head
-         fcSpawn(512, 2),           //Actor head - Spawn
-         device(torch::Device(torch::kCUDA))
+        fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 512),
+        fc2(512, 6),               //Actor head - Ship
+        fc3(512, 1),               //Critic head
+        fcSpawn(512, 2),           //Actor head - Spawn
+        device(torch::Device(torch::kCUDA))
     {
         register_module("conv1", conv1);
         register_module("conv2", conv2);
@@ -97,9 +97,11 @@ public:
         }
 
         auto log_prob = action_probabilities.gather(1, selected_action).log();
+        auto p_log_p = action_probabilities * action_probabilities.log();
+        auto entropy = -p_log_p.sum(-1).unsqueeze(-1);
         auto value = fc3->forward(x);
-        //Return action, log_prob, value
-        ModelOutput output {selected_action, log_prob, value};
+        //Return action, log_prob, value, entropy
+        ModelOutput output {selected_action, log_prob, value, entropy};
         return output;
     }
 
@@ -126,9 +128,11 @@ public:
         }
 
         auto log_prob = action_probabilities.gather(1, selected_action).log();
+        auto p_log_p = action_probabilities * action_probabilities.log();
+        auto entropy = -p_log_p.sum(-1).unsqueeze(-1);
         auto value = fc3->forward(x);
-        //Return action, log_prob, value
-        ModelOutput output {selected_action, log_prob, value};
+        //Return action, log_prob, value, entropy
+        ModelOutput output {selected_action, log_prob, value, entropy};
         return output;
   }
 
