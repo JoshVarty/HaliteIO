@@ -41,16 +41,20 @@ struct Cell {
     bool spawnPresent = false;
 };
 
-/*A compressed representation of the state of the game from the perspective of a ship at any moment in time*/
+/*A compressed representation of the state of the game at a given timestep*/
 struct GameState {
     Cell position[GAME_HEIGHT][GAME_WIDTH] = {};
     float scores[NUMBER_OF_PLAYERS] = {};
     float steps_remaining = -1;
+};
 
+/*A compressed representation of the state of the game from the perspective of a single entity*/
+struct EntityState {
     int entityX = -1;
     int entityY = -1;
     float halite_on_ship;
     long playerId;
+    std::shared_ptr<GameState> gameState;
 };
 
 struct ModelOutput {
@@ -61,7 +65,7 @@ struct ModelOutput {
 };
 
 struct RolloutItem {
-    GameState state;
+    std::shared_ptr<EntityState> state;
     long action;
     float value;
     float log_prob;
@@ -78,7 +82,7 @@ struct CompleteRolloutResult {
 };
 
 struct ProcessedRolloutItem {
-    GameState state;
+    std::shared_ptr<EntityState> state;
     long action;
     float log_prob;
     float returns;

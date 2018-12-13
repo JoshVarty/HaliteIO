@@ -21,9 +21,11 @@ private:
 
 std::string unitCommands[6] = {"N","E","S","W","still","construct"};
 
-torch::Tensor convertGameStateToTensor(GameState gameState) {
+torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entityStatePtr) {
 
-    auto playerId = gameState.playerId;
+    auto entityState = entityStatePtr.get();
+    auto gameState = entityState->gameState.get();
+    auto playerId = entityState->playerId;
     //Halite Location
     //auto halite_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto steps_remaining = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
@@ -42,25 +44,25 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
     auto entity_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto entity_energy = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
 
-    entity_location[gameState.entityY][gameState.entityX] = 1;
-    entity_energy[gameState.entityY][gameState.entityX] = gameState.halite_on_ship;
+    entity_location[entityState->entityY][entityState->entityX] = 1;
+    entity_energy[entityState->entityY][entityState->entityX] = entityState->halite_on_ship;
 
-    steps_remaining.fill_(gameState.steps_remaining);
+    steps_remaining.fill_(gameState->steps_remaining);
 
     //TODO: Generalize for more players
     if(playerId == 0) {
-        my_score.fill_(gameState.scores[0]);
-        enemy_score.fill_(gameState.scores[1]);
+        my_score.fill_(gameState->scores[0]);
+        enemy_score.fill_(gameState->scores[1]);
     } else {
-        my_score.fill_(gameState.scores[1]);
-        enemy_score.fill_(gameState.scores[0]);
+        my_score.fill_(gameState->scores[1]);
+        enemy_score.fill_(gameState->scores[0]);
     }
 
     float haliteLocationArray[GAME_HEIGHT][GAME_WIDTH];
 
     for(std::size_t y = 0; y < GAME_HEIGHT; y++) {
         for(std::size_t x = 0; x < GAME_WIDTH; x++) {
-            auto cell = gameState.position[y][x];
+            auto cell = gameState->position[y][x];
             haliteLocationArray[y][x] = cell.halite_on_ground;
 
             if(cell.shipId == playerId) {
@@ -91,14 +93,23 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
     return stateTensor;
 }
 
-GameState parseGameIntoGameState(long playerId, hlt::Halite &game, int entityY, int entityX, float entityEnergy) {
+std::shared_ptr<EntityState> parseGameIntoEntityState(std::shared_ptr<GameState> &gameState, long playerId, int entityY, int entityX, float entityEnergy) {
+    auto entityStatePtr = std::make_shared<EntityState>();
+    auto entityState = entityStatePtr.get();
+    
+    entityState->gameState = gameState;
+    entityState->entityY = entityY;
+    entityState->entityX = entityX;
+    entityState->halite_on_ship = (entityEnergy / MAX_HALITE_ON_SHIP) - 0.5;
+    entityState->playerId = playerId;
 
-    GameState gameState;
+    return entityStatePtr;
+}
 
-    gameState.entityY = entityY;
-    gameState.entityX = entityX;
-    gameState.halite_on_ship = (entityEnergy / MAX_HALITE_ON_SHIP) - 0.5;
-    gameState.playerId = playerId;
+std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
+
+    auto gameStatePtr = std::make_shared<GameState>();
+    auto gameState = gameStatePtr.get();
 
     int no_of_rows = GAME_HEIGHT;
     int no_of_cols = GAME_WIDTH;
@@ -129,15 +140,15 @@ GameState parseGameIntoGameState(long playerId, hlt::Halite &game, int entityY, 
             auto y = cellY;
 
             float scaled_halite = (cell.energy / MAX_HALITE_ON_MAP) - 0.5;
-            gameState.position[y][x].halite_on_ground = scaled_halite;
+            gameState->position[y][x].halite_on_ground = scaled_halite;
 
             if(cell.entity.value != -1) {
                 //There is a ship here
                 auto entity = game.store.get_entity(cell.entity);
 
-                gameState.position[y][x].halite_on_ship = (entity.energy / MAX_HALITE_ON_SHIP) - 0.5;
-                gameState.position[y][x].shipId = entity.id.value;
-                gameState.position[y][x].shipOwner = entity.owner.value;;
+                gameState->position[y][x].halite_on_ship = (entity.energy / MAX_HALITE_ON_SHIP) - 0.5;
+                gameState->position[y][x].shipId = entity.id.value;
+                gameState->position[y][x].shipOwner = entity.owner.value;;
             }
 
             cellX = cellX + 1;
@@ -145,34 +156,33 @@ GameState parseGameIntoGameState(long playerId, hlt::Halite &game, int entityY, 
         cellY = cellY + 1;
     }
 
-
     for(auto playerPair : game.store.players) {
 
         auto player = playerPair.second;
         auto spawn = player.factory;
 
         //We consider spawn/factories to be both dropoffs and spawns
-        gameState.position[spawn.y][spawn.x].dropOffPresent = true;
-        gameState.position[spawn.y][spawn.x].spawnPresent = true;
-        gameState.position[spawn.y][spawn.x].structureOwner = player.id.value;
+        gameState->position[spawn.y][spawn.x].dropOffPresent = true;
+        gameState->position[spawn.y][spawn.x].spawnPresent = true;
+        gameState->position[spawn.y][spawn.x].structureOwner = player.id.value;
 
         for(auto dropoff : player.dropoffs) {
-            gameState.position[dropoff.location.y][dropoff.location.x].dropOffPresent = true;
-            gameState.position[dropoff.location.y][dropoff.location.x].structureOwner = player.id.value;
+            gameState->position[dropoff.location.y][dropoff.location.x].dropOffPresent = true;
+            gameState->position[dropoff.location.y][dropoff.location.x].structureOwner = player.id.value;
         }
 
         // Player score
         auto score = player.energy;
         auto floatScore = (float)score;
-        gameState.scores[player.id.value] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
+        gameState->scores[player.id.value] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
     }
 
     //Steps remaining
     auto steps_remaining_value = totalSteps - game.turn_number + 1;
     auto scaled_steps = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
-    gameState.steps_remaining = scaled_steps;
+    gameState->steps_remaining = scaled_steps;
 
-    return gameState;
+    return gameStatePtr;
 }
 
 
@@ -206,6 +216,7 @@ CompleteRolloutResult generate_rollouts() {
         game.initialize_game(numPlayers);
 
         game.turn_number = 1;
+
         while(true) {
 
             // Add state of entities at start of turn.
@@ -218,7 +229,7 @@ CompleteRolloutResult generate_rollouts() {
             auto &players = game.store.players;
             int offset = 0;
 
-            std::unordered_map<long, RolloutItem> rolloutCurrentTurnByEntityId;
+            auto gameState = parseGameIntoGameState(game);
 
             for (auto playerPair : players) {
 
@@ -229,23 +240,20 @@ CompleteRolloutResult generate_rollouts() {
                 for(auto entityPair : player.entities) {
                     auto entityId = entityPair.first;
                     auto location = entityPair.second;
-
                     auto entity = game.store.get_entity(entityId);
-                    auto gameState = parseGameIntoGameState(playerId, game, location.y, location.x, entity.energy);
 
-                    //Ask the neural network what to do now?
-                    //auto state = torch::from_blob(frames.state, {NUMBER_OF_FRAMES, GAME_HEIGHT, GAME_WIDTH});
-                    auto state = convertGameStateToTensor(gameState);
+                    auto entityState = parseGameIntoEntityState(gameState, playerId, location.y, location.x, entity.energy);
+                    auto state = convertEntityStateToTensor(entityState);
 
-                    //frames.debug_print();
                     state = state.unsqueeze(0);
                     torch::Tensor emptyAction;
+                    //Ask the neural network what to do
                     auto modelOutput = myModel.forward(state, emptyAction);
                     auto actionIndex = modelOutput.action.item<int64_t>();
 
                     //Create and story rollout
                     RolloutItem current_rollout;
-                    current_rollout.state = gameState;
+                    current_rollout.state = entityState;
                     current_rollout.value = modelOutput.value.item<float>();
                     current_rollout.action = actionIndex;
                     current_rollout.log_prob = modelOutput.log_prob.item<float>();
@@ -254,8 +262,7 @@ CompleteRolloutResult generate_rollouts() {
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     current_rollout.done = 1;
 
-                    rolloutCurrentTurnByEntityId[entityId.value] = current_rollout;
-
+                    rolloutsForCurrentGame[entityId.value].push_back(current_rollout);
                     std::string command = unitCommands[actionIndex];
                     playerCommands.push_back(AgentCommand(entityId.value, command));
                 }
@@ -264,8 +271,8 @@ CompleteRolloutResult generate_rollouts() {
                 if(player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
                     long factoryId = -1;
 
-                    auto gameState = parseGameIntoGameState(playerId, game, player.factory.y, player.factory.x, player.energy);
-                    auto state = convertGameStateToTensor(gameState);
+                    auto entityState = parseGameIntoEntityState(gameState, playerId, player.factory.y, player.factory.x, 0);
+                    auto state = convertEntityStateToTensor(entityState);
                     state = state.unsqueeze(0);
                     //Ask the neural network what to do now?
                     torch::Tensor emptyAction;
@@ -274,7 +281,7 @@ CompleteRolloutResult generate_rollouts() {
                     auto actionIndex = modelOutput.action.item<int64_t>();
                     //Create and story rollout
                     RolloutItem current_rollout;
-                    current_rollout.state = gameState;
+                    current_rollout.state = entityState;
                     current_rollout.value = modelOutput.value.item<float>();
                     current_rollout.action = actionIndex;
                     current_rollout.log_prob = modelOutput.log_prob.item<float>();
@@ -296,14 +303,6 @@ CompleteRolloutResult generate_rollouts() {
 
             game.process_turn(commands);
 
-            //Add current rollouts to list
-            for(auto rolloutKeyValue : rolloutCurrentTurnByEntityId) {
-                auto entityId = rolloutKeyValue.first;
-                auto rolloutItem = rolloutKeyValue.second;
-
-                rolloutsForCurrentGame[entityId].push_back(rolloutItem);
-            }
-
             game.turn_number = game.turn_number + 1;
             if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
                 //std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
@@ -318,21 +317,21 @@ CompleteRolloutResult generate_rollouts() {
                 scores.push_back(player2Score);
 
                 //If the game ended we have to correct the "rewards" and the "dones"
-                for(auto rolloutKeyValue : rolloutsForCurrentGame) {
+                for(auto &rolloutKeyValue : rolloutsForCurrentGame) {
                     auto entityId = rolloutKeyValue.first;
-                    auto entityRollout = rolloutKeyValue.second;
-                    auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
+                    auto &entityRollout = rolloutKeyValue.second;
+                    auto &lastRolloutItem = entityRollout[entityRollout.size() - 1];
 
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     lastRolloutItem.done = 0;
                     if(lastRolloutItem.playerId == 0) {
                         lastRolloutItem.reward = player1Score;
+                        rolloutKeyValue.second[entityRollout.size() - 1].reward = player1Score;
                     }
                     else {
                         lastRolloutItem.reward = player2Score;
+                        rolloutKeyValue.second[entityRollout.size() - 1].reward = player2Score;
                     }
-
-                    rolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
 
                     rollouts.insert(rollouts.end(), rolloutsForCurrentGame[entityId].begin(), rolloutsForCurrentGame[entityId].end());
                 }
@@ -351,8 +350,6 @@ CompleteRolloutResult generate_rollouts() {
                     else {
                         lastRolloutItem.reward = player2Score;
                     }
-
-                    spawnRolloutsForCurrentGame[entityId][entityRollout.size() - 1] = lastRolloutItem;
 
                     spawn_rollouts.insert(spawn_rollouts.end(), spawnRolloutsForCurrentGame[entityId].begin(), spawnRolloutsForCurrentGame[entityId].end());
                 }
@@ -450,8 +447,8 @@ TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout
             //Create stack of Tensors as input to neural network
             std::vector<at::Tensor> stateList;
             for(int i = 0; i < batchSize; i++) {
-                auto gameState = nextBatch[i].state;
-                auto stateTensor = convertGameStateToTensor(gameState);
+                auto entityState = nextBatch[i].state;
+                auto stateTensor = convertEntityStateToTensor(entityState);
                 stateList.push_back(stateTensor);
             }
 
