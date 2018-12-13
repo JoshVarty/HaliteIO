@@ -218,8 +218,6 @@ CompleteRolloutResult generate_rollouts() {
         game.turn_number = 1;
 
         while(true) {
-
-            // Add state of entities at start of turn.
             // First, update inspiration flags, so they can be used for
             // movement/mining and so they are part of the replay.
             game.update_inspiration();
@@ -227,15 +225,12 @@ CompleteRolloutResult generate_rollouts() {
             std::map<long, std::vector<AgentCommand>> commands;
 
             auto &players = game.store.players;
-            int offset = 0;
-
             auto gameState = parseGameIntoGameState(game);
 
             for (auto playerPair : players) {
-
                 auto playerId = playerPair.first.value;
-                std::vector<AgentCommand> playerCommands;
                 auto player = playerPair.second;
+                std::vector<AgentCommand> playerCommands;
 
                 for(auto entityPair : player.entities) {
                     auto entityId = entityPair.first;
@@ -243,9 +238,8 @@ CompleteRolloutResult generate_rollouts() {
                     auto entity = game.store.get_entity(entityId);
 
                     auto entityState = parseGameIntoEntityState(gameState, playerId, location.y, location.x, entity.energy);
-                    auto state = convertEntityStateToTensor(entityState);
+                    auto state = convertEntityStateToTensor(entityState).unsqueeze(0);
 
-                    state = state.unsqueeze(0);
                     torch::Tensor emptyAction;
                     //Ask the neural network what to do
                     auto modelOutput = myModel.forward(state, emptyAction);
@@ -257,7 +251,7 @@ CompleteRolloutResult generate_rollouts() {
                     current_rollout.value = modelOutput.value.item<float>();
                     current_rollout.action = actionIndex;
                     current_rollout.log_prob = modelOutput.log_prob.item<float>();
-                    current_rollout.playerId = player.id.value;
+                    current_rollout.playerId = playerId;
                     current_rollout.reward = 0;
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     current_rollout.done = 1;
@@ -269,12 +263,9 @@ CompleteRolloutResult generate_rollouts() {
 
                 auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
                 if(player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
-                    long factoryId = -1;
-
                     auto entityState = parseGameIntoEntityState(gameState, playerId, player.factory.y, player.factory.x, 0);
-                    auto state = convertEntityStateToTensor(entityState);
-                    state = state.unsqueeze(0);
-                    //Ask the neural network what to do now?
+                    auto state = convertEntityStateToTensor(entityState).unsqueeze(0);
+                    //Ask the neural network what to do
                     torch::Tensor emptyAction;
                     auto modelOutput = myModel.forward_spawn(state, emptyAction);
 
@@ -285,17 +276,17 @@ CompleteRolloutResult generate_rollouts() {
                     current_rollout.value = modelOutput.value.item<float>();
                     current_rollout.action = actionIndex;
                     current_rollout.log_prob = modelOutput.log_prob.item<float>();
-                    current_rollout.playerId = player.id.value;
+                    current_rollout.playerId = playerId;
                     current_rollout.reward = 0;
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     current_rollout.done = 1;
 
                     if(actionIndex == 0) {
                         std::string command = "spawn";
-                        playerCommands.push_back(AgentCommand(factoryId, command));
+                        playerCommands.push_back(AgentCommand(playerId, command));
                     }
 
-                    spawnRolloutsForCurrentGame[player.id.value].push_back(current_rollout);
+                    spawnRolloutsForCurrentGame[playerId].push_back(current_rollout);
                 }
 
                 commands[playerId] = playerCommands;
@@ -326,21 +317,19 @@ CompleteRolloutResult generate_rollouts() {
                     lastRolloutItem.done = 0;
                     if(lastRolloutItem.playerId == 0) {
                         lastRolloutItem.reward = player1Score;
-                        rolloutKeyValue.second[entityRollout.size() - 1].reward = player1Score;
                     }
                     else {
                         lastRolloutItem.reward = player2Score;
-                        rolloutKeyValue.second[entityRollout.size() - 1].reward = player2Score;
                     }
 
                     rollouts.insert(rollouts.end(), rolloutsForCurrentGame[entityId].begin(), rolloutsForCurrentGame[entityId].end());
                 }
 
                 //Need to do the same thing for spawnRollouts
-                for(auto rolloutKeyValue : spawnRolloutsForCurrentGame) {
+                for(auto &rolloutKeyValue : spawnRolloutsForCurrentGame) {
                     auto entityId = rolloutKeyValue.first;
-                    auto entityRollout = rolloutKeyValue.second;
-                    auto lastRolloutItem = entityRollout[entityRollout.size() - 1];
+                    auto &entityRollout = rolloutKeyValue.second;
+                    auto &lastRolloutItem = entityRollout[entityRollout.size() - 1];
 
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     lastRolloutItem.done = 0;
@@ -374,7 +363,7 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
     float advantage = 0;
     auto currentReturn = rollouts[rollouts.size() - 1].value;
 
-    float advantage_mean;
+    float advantage_mean = 0.0;
 
     for(int i = rollouts.size() - 2;  i >= 0; i--) {
         auto rolloutItem = rollouts[i];
@@ -423,15 +412,15 @@ TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout
     std::vector<float> policy_losses;
     std::vector<float> losses;
 
+    float sampled_actions[this->mini_batch_number];
+    float sampled_log_probs_old[this->mini_batch_number];
+    float sampled_returns[this->mini_batch_number];
+    float sampled_advantages[this->mini_batch_number];
+
     Batcher batcher(std::min(this->mini_batch_number, processed_rollout.size()), processed_rollout);
     for(int i = 0; i < this->learningRounds; i++) {
         //Shuffle the rollouts
         batcher.shuffle();
-
-        float sampled_actions[this->mini_batch_number];
-        float sampled_log_probs_old[this->mini_batch_number];
-        float sampled_returns[this->mini_batch_number];
-        float sampled_advantages[this->mini_batch_number];
 
         while(!batcher.end()) {
             auto nextBatch = batcher.next_batch();

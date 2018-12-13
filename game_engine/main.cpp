@@ -186,7 +186,7 @@ void runGridSearch() {
 
 int main(int argc, char *argv[]) {
 
-    int numEpisodes = 10000;
+    int numEpisodes = 20000;
     int numProcessed = 0;
 
     float discount_rate = 0.99;
@@ -194,8 +194,8 @@ int main(int argc, char *argv[]) {
     float learningRounds = 2;
     float mini_batch_number = 32;
     float ppo_clip = 0.2;
-    float minimum_rollout_size = 1000;
-    float learning_rate = 0.0000001;
+    float minimum_rollout_size = 3000;
+    float learning_rate = 0.00000001;
     float entropy_weight = 0.01;
 
     Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate, entropy_weight);
