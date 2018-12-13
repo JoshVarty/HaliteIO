@@ -14,10 +14,11 @@ using namespace std;
 using namespace hlt;
 
 
+torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entityStatePtr) {
 
-torch::Tensor convertGameStateToTensor(GameState gameState) {
-
-    auto playerId = gameState.playerId;
+    auto entityState = entityStatePtr.get();
+    auto gameState = entityState->gameState.get();
+    auto playerId = entityState->playerId;
     //Halite Location
     //auto halite_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto steps_remaining = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
@@ -36,25 +37,25 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
     auto entity_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto entity_energy = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
 
-    entity_location[gameState.entityY][gameState.entityX] = 1;
-    entity_energy[gameState.entityY][gameState.entityX] = gameState.halite_on_ship;
+    entity_location[entityState->entityY][entityState->entityX] = 1;
+    entity_energy[entityState->entityY][entityState->entityX] = entityState->halite_on_ship;
 
-    steps_remaining.fill_(gameState.steps_remaining);
+    steps_remaining.fill_(gameState->steps_remaining);
 
     //TODO: Generalize for more players
     if(playerId == 0) {
-        my_score.fill_(gameState.scores[0]);
-        enemy_score.fill_(gameState.scores[1]);
+        my_score.fill_(gameState->scores[0]);
+        enemy_score.fill_(gameState->scores[1]);
     } else {
-        my_score.fill_(gameState.scores[1]);
-        enemy_score.fill_(gameState.scores[0]);
+        my_score.fill_(gameState->scores[1]);
+        enemy_score.fill_(gameState->scores[0]);
     }
 
     float haliteLocationArray[GAME_HEIGHT][GAME_WIDTH];
 
     for(std::size_t y = 0; y < GAME_HEIGHT; y++) {
         for(std::size_t x = 0; x < GAME_WIDTH; x++) {
-            auto cell = gameState.position[y][x];
+            auto cell = gameState->position[y][x];
             haliteLocationArray[y][x] = cell.halite_on_ground;
 
             if(cell.shipId == playerId) {
@@ -85,15 +86,25 @@ torch::Tensor convertGameStateToTensor(GameState gameState) {
     return stateTensor;
 }
 
+std::shared_ptr<EntityState> parseGameIntoEntityState(std::shared_ptr<GameState> &gameState, long playerId, int entityY, int entityX, float entityEnergy) {
+    auto entityStatePtr = std::make_shared<EntityState>();
+    auto entityState = entityStatePtr.get();
 
-GameState parseGameIntoGameState(long playerId, hlt::Game &game, int entityY, int entityX, float entityEnergy) {
+    entityState->gameState = gameState;
+    entityState->entityY = entityY;
+    entityState->entityX = entityX;
+    entityState->halite_on_ship = (entityEnergy / MAX_HALITE_ON_SHIP) - 0.5;
+    entityState->playerId = playerId;
 
-    GameState gameState;
+    return entityStatePtr;
+}
 
-    gameState.entityY = entityY;
-    gameState.entityX = entityX;
-    gameState.halite_on_ship = (entityEnergy / MAX_HALITE_ON_SHIP) - 0.5;
-    gameState.playerId = playerId;
+
+
+std::shared_ptr<GameState> parseGameIntoGameState(hlt::Game &game) {
+
+    auto gameStatePtr = std::make_shared<GameState>();
+    auto gameState = gameStatePtr.get();
 
     int no_of_rows = GAME_HEIGHT;
     int no_of_cols = GAME_WIDTH;
@@ -123,15 +134,15 @@ GameState parseGameIntoGameState(long playerId, hlt::Game &game, int entityY, in
             auto y = cell.position.y;
 
             auto scaled_halite = (cell.halite / MAX_HALITE_ON_MAP) - 0.5;
-            gameState.position[y][x].halite_on_ground = scaled_halite;
+            gameState->position[y][x].halite_on_ground = scaled_halite;
 
             if(cell.is_occupied()) {
                 //There is a ship here
                 auto entity = cell.ship.get();
 
-                gameState.position[y][x].halite_on_ship = (entity->halite / MAX_HALITE_ON_SHIP) - 0.5;
-                gameState.position[y][x].shipId = entity->id;
-                gameState.position[y][x].shipOwner = entity->owner;
+                gameState->position[y][x].halite_on_ship = (entity->halite / MAX_HALITE_ON_SHIP) - 0.5;
+                gameState->position[y][x].shipId = entity->id;
+                gameState->position[y][x].shipOwner = entity->owner;
             }
         }
     }
@@ -143,28 +154,28 @@ GameState parseGameIntoGameState(long playerId, hlt::Game &game, int entityY, in
         auto spawn = player->shipyard.get();
 
         //We consider spawn/factories to be both dropoffs and spawns
-        gameState.position[spawn->position.y][spawn->position.x].dropOffPresent = true;
-        gameState.position[spawn->position.y][spawn->position.x].spawnPresent = true;
-        gameState.position[spawn->position.y][spawn->position.x].structureOwner = player->id;
+        gameState->position[spawn->position.y][spawn->position.x].dropOffPresent = true;
+        gameState->position[spawn->position.y][spawn->position.x].spawnPresent = true;
+        gameState->position[spawn->position.y][spawn->position.x].structureOwner = player->id;
 
         for(auto dropoffPair : player->dropoffs) {
             auto dropoff = dropoffPair.second.get();
-            gameState.position[dropoff->position.y][dropoff->position.x].dropOffPresent = true;
-            gameState.position[dropoff->position.y][dropoff->position.x].structureOwner = player->id;
+            gameState->position[dropoff->position.y][dropoff->position.x].dropOffPresent = true;
+            gameState->position[dropoff->position.y][dropoff->position.x].structureOwner = player->id;
         }
 
         // Player score
         auto score = player->halite;
         auto floatScore = (float)score;
-        gameState.scores[player->id] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
+        gameState->scores[player->id] = (floatScore / MAX_SCORE_APPROXIMATE) - 0.5;
     }
 
     //Steps remaining
     auto steps_remaining_value = totalSteps - game.turn_number + 1;
     auto scaled_steps = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
-    gameState.steps_remaining = scaled_steps;
+    gameState->steps_remaining = scaled_steps;
 
-    return gameState;
+    return gameStatePtr;
 }
 
 
@@ -206,6 +217,7 @@ int main(int argc, char* argv[]) {
         unique_ptr<GameMap>& game_map = game.game_map;
 
         vector<Command> command_queue;
+        auto gameState = parseGameIntoGameState(game);
 
         for (const auto& ship_iterator : me->ships) {
 
@@ -214,9 +226,10 @@ int main(int argc, char* argv[]) {
 
             // Parse the map into inputs for our neural network
             log::log("About to parse frames");
-            auto gameState = parseGameIntoGameState(me->id, game, ship->position.y, ship->position.x, ship->halite);
+            //auto gameState = parseGameIntoGameState(me->id, game, ship->position.y, ship->position.x, ship->halite);
+            auto entityState = parseGameIntoEntityState(gameState, me->id, ship->position.y, ship->position.x, ship->halite);
             log::log("Done parsing frames");
-            auto state = convertGameStateToTensor(gameState);
+            auto state = convertEntityStateToTensor(entityState);
             //Convert input frames into tensor state
             state = state.unsqueeze(0);
             torch::Tensor emptyAction;
@@ -260,10 +273,8 @@ int main(int argc, char* argv[]) {
 
             long factoryId = -1;
 
-            auto gameState = parseGameIntoGameState(me->id, game, me->shipyard->position.y, me->shipyard->position.x, me->halite);
-            log::log("Done parsing frames");
-            auto state = convertGameStateToTensor(gameState);
-
+            auto entityState = parseGameIntoEntityState(gameState, me->id, me->shipyard->position.y, me->shipyard->position.x, 0);
+            auto state = convertEntityStateToTensor(entityState);
             state = state.unsqueeze(0);
             torch::Tensor emptyAction;
             auto modelOutput = myModel.forward_spawn(state, emptyAction);
