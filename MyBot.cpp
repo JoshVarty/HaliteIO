@@ -58,19 +58,19 @@ torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entitySta
             auto cell = gameState->position[y][x];
             haliteLocationArray[y][x] = cell.halite_on_ground;
 
-            if(cell.shipId == playerId) {
+            if(cell.shipOwnerId == playerId) {
                 my_ships[y][x] = 1;
                 my_ships_halite[y][x] = cell.halite_on_ship;
             }
-            else if (cell.shipId != -1) {
+            else if (cell.shipOwnerId != -1) {
                 enemy_ships[y][x] = 1;
                 enemy_ships_halite[y][x] = cell.halite_on_ship;
             }
 
-            if(cell.structureOwner == playerId) {
+            if(cell.structureOwnerId == playerId) {
                 my_dropoffs[y][x] = 1;
             }
-            else if (cell.structureOwner != -1) {
+            else if (cell.structureOwnerId != -1) {
                 enemy_dropoffs[y][x] = 1;
             }
         }
@@ -139,8 +139,7 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Game &game) {
                 auto entity = cell.ship.get();
 
                 gameState->position[y][x].halite_on_ship = (entity->halite / MAX_HALITE_ON_SHIP) - 0.5;
-                gameState->position[y][x].shipId = entity->id;
-                gameState->position[y][x].shipOwner = entity->owner;
+                gameState->position[y][x].shipOwnerId = entity->owner;
             }
         }
     }
@@ -154,12 +153,12 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Game &game) {
         //We consider spawn/factories to be both dropoffs and spawns
         gameState->position[spawn->position.y][spawn->position.x].dropOffPresent = true;
         gameState->position[spawn->position.y][spawn->position.x].spawnPresent = true;
-        gameState->position[spawn->position.y][spawn->position.x].structureOwner = player->id;
+        gameState->position[spawn->position.y][spawn->position.x].structureOwnerId = player->id;
 
         for(auto dropoffPair : player->dropoffs) {
             auto dropoff = dropoffPair.second.get();
             gameState->position[dropoff->position.y][dropoff->position.x].dropOffPresent = true;
-            gameState->position[dropoff->position.y][dropoff->position.x].structureOwner = player->id;
+            gameState->position[dropoff->position.y][dropoff->position.x].structureOwnerId = player->id;
         }
 
         // Player score

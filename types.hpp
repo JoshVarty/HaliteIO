@@ -32,11 +32,10 @@ struct Cell {
     //Map info
     float halite_on_ground = 0.0;
     //Ship info
-    long shipOwner = -1;
-    long shipId = -1;
+    long shipOwnerId = -1;
     float halite_on_ship = 0.0;
     //Structure Info
-    long structureOwner = -1;
+    long structureOwnerId = -1;
     bool dropOffPresent = false;
     bool spawnPresent = false;
 };

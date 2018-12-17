@@ -26,10 +26,10 @@ torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entitySta
     auto entityState = entityStatePtr.get();
     auto gameState = entityState->gameState.get();
     auto playerId = entityState->playerId;
-    //Halite Location
-    //auto halite_location = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
+
+    //Global info
     auto steps_remaining = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
-    // //My global info
+    //My global info
     auto my_ships = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto my_ships_halite = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
     auto my_dropoffs = torch::zeros({GAME_HEIGHT, GAME_WIDTH});
@@ -58,6 +58,7 @@ torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entitySta
         enemy_score.fill_(gameState->scores[0]);
     }
 
+    float halite = -1.0;
     float haliteLocationArray[GAME_HEIGHT][GAME_WIDTH];
 
     for(std::size_t y = 0; y < GAME_HEIGHT; y++) {
@@ -65,19 +66,20 @@ torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entitySta
             auto cell = gameState->position[y][x];
             haliteLocationArray[y][x] = cell.halite_on_ground;
 
-            if(cell.shipId == playerId) {
+            if(cell.shipOwnerId == playerId) {
                 my_ships[y][x] = 1;
                 my_ships_halite[y][x] = cell.halite_on_ship;
             }
-            else if (cell.shipId != -1) {
+            else if (cell.shipOwnerId != -1) {
                 enemy_ships[y][x] = 1;
                 enemy_ships_halite[y][x] = cell.halite_on_ship;
+                halite = cell.halite_on_ship;
             }
 
-            if(cell.structureOwner == playerId) {
+            if(cell.structureOwnerId == playerId) {
                 my_dropoffs[y][x] = 1;
             }
-            else if (cell.structureOwner != -1) {
+            else if (cell.structureOwnerId != -1) {
                 enemy_dropoffs[y][x] = 1;
             }
         }
@@ -144,8 +146,7 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
                 auto entity = game.store.get_entity(cell.entity);
 
                 gameState->position[y][x].halite_on_ship = (entity.energy / MAX_HALITE_ON_SHIP) - 0.5;
-                gameState->position[y][x].shipId = entity.id.value;
-                gameState->position[y][x].shipOwner = entity.owner.value;
+                gameState->position[y][x].shipOwnerId = entity.owner.value;
             }
 
             cellX = cellX + 1;
@@ -161,11 +162,11 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
         //We consider spawn/factories to be both dropoffs and spawns
         gameState->position[spawn.y][spawn.x].dropOffPresent = true;
         gameState->position[spawn.y][spawn.x].spawnPresent = true;
-        gameState->position[spawn.y][spawn.x].structureOwner = player.id.value;
+        gameState->position[spawn.y][spawn.x].structureOwnerId = player.id.value;
 
         for(auto dropoff : player.dropoffs) {
             gameState->position[dropoff.location.y][dropoff.location.x].dropOffPresent = true;
-            gameState->position[dropoff.location.y][dropoff.location.x].structureOwner = player.id.value;
+            gameState->position[dropoff.location.y][dropoff.location.x].structureOwnerId = player.id.value;
         }
 
         // Player score
