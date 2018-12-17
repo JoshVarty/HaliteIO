@@ -261,7 +261,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        if (game.turn_number < 25 && me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
+        if (me->ships.size() == 0 && me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
             std::string command = "spawn";
             command_queue.push_back(me->shipyard->spawn());
         }
