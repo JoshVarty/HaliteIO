@@ -32,6 +32,8 @@ class SymmetricalTile : public Generator {
      * @param tile_height Height of segment of map already filled in. Assumes map filled beginning at 0, 0
      */
     void flip_horizontal(Map &map, dimension_type tile_width, dimension_type tile_height);
+
+
 protected:
     unsigned long num_players;    /**< number of players who will be on the map */
     dimension_type tile_width;    /**< width (in cells) of a single tile */

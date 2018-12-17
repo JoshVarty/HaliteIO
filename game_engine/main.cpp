@@ -97,7 +97,6 @@ void ppo(Agent myAgent, uint numEpisodes, int iteration) {
                 torch::save(myAgent.myModel.fc1, std::to_string(iteration) + "fc1.pt");
                 torch::save(myAgent.myModel.fc2, std::to_string(iteration) + "fc2.pt");
                 torch::save(myAgent.myModel.fc3, std::to_string(iteration) + "fc3.pt");
-                torch::save(myAgent.myModel.fcSpawn, std::to_string(iteration) + "fcSpawn.pt");
                 //Now we move the model back to the GPU
                 myAgent.myModel.to(torch::kCUDA);
             }
@@ -129,7 +128,6 @@ void loadWeights(Agent agent) {
         torch::load(agent.myModel.fc1, "0fc1.pt");
         torch::load(agent.myModel.fc2, "0fc2.pt");
         torch::load(agent.myModel.fc3, "0fc3.pt");
-        torch::load(agent.myModel.fcSpawn, "0fcSpawn.pt");
     }
     catch (const std::exception& e) {
         std::cout << "Could not load models from disk. Starting from scratch" << std::endl;
@@ -191,15 +189,15 @@ int main(int argc, char *argv[]) {
 
     float discount_rate = 0.99;
     float tau = 0.95;
-    float learningRounds = 2;
-    float mini_batch_number = 64;
+    float learningRounds = 1;
+    float mini_batch_number = 32;
     float ppo_clip = 0.2;
-    float minimum_rollout_size = 4000;
-    float learning_rate = 0.0000005;
+    float minimum_rollout_size = 20000;
+    float learning_rate = 0.0000001;
     float entropy_weight = 0.01;
 
     Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate, entropy_weight);
-    //loadWeights(agent);
+    loadWeights(agent);
     ppo(agent, numEpisodes, numProcessed);
 
 

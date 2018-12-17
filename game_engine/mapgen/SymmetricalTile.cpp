@@ -1,5 +1,5 @@
 #include "SymmetricalTile.hpp"
-
+#include <random>
 #include <unordered_set>
 
 namespace hlt {
@@ -110,8 +110,14 @@ void SymmetricalTile::flip_horizontal(Map &map, const dimension_type tile_width,
 void SymmetricalTile::tile_map(hlt::Map &map, hlt::dimension_type factory_y, hlt::dimension_type factory_x,
                                const hlt::Map &tile) {
     // Put factory in the center (ish) of tile (closer to center of map)
-    dimension_type factory_pos_x = tile.width / 2;
-    dimension_type factory_pos_y = tile.height / 2;
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<> distr(0, this->width - 1); // define the range
+
+    // dimension_type factory_pos_x = tile.width / 2;
+    // dimension_type factory_pos_y = tile.height / 2;
+    dimension_type factory_pos_x = distr(eng);
+    dimension_type factory_pos_y = distr(eng);
     if (tile.width >= 16 && tile.width <= 40 && tile.height >= 16 && tile.height <= 40) {
         factory_pos_x = static_cast<dimension_type>(8 + ((tile.width - 16) / 24.0) * 20);
         if (num_players > 2) {

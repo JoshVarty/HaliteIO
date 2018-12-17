@@ -19,7 +19,7 @@
 class Agent {
 private:
 
-std::string unitCommands[6] = {"N","E","S","W","still","construct"};
+std::string unitCommands[5] = {"N","E","S","W","still"};
 
 torch::Tensor convertEntityStateToTensor(std::shared_ptr<EntityState> &entityStatePtr) {
 
@@ -187,6 +187,7 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
 
 CompleteRolloutResult generate_rollouts() {
 
+    int numberOfGamesPlayed = 0;
     CompleteRolloutResult result;
     std::vector<RolloutItem> rollouts;
     std::vector<long> scores;
@@ -208,6 +209,7 @@ CompleteRolloutResult generate_rollouts() {
         hlt::Halite game(map, game_statistics, replay);
 
         game.initialize_game(numPlayers);
+        numberOfGamesPlayed = numberOfGamesPlayed + 1;
 
         game.turn_number = 1;
 
@@ -302,6 +304,7 @@ CompleteRolloutResult generate_rollouts() {
     }
 
     std::cout << "Rollouts: " << rollouts.size() << std::endl;
+    std::cout << "Games played: " << numberOfGamesPlayed << std::endl;
 
     //Return scores along with rollouts
     result.rollouts = rollouts;
@@ -360,7 +363,7 @@ std::vector<ProcessedRolloutItem> process_rollouts(std::vector<RolloutItem> roll
     return processed_rollouts;
 }
 
-TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout, bool spawnRollout) {
+TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout) {
 
     std::vector<float> value_losses;
     std::vector<float> policy_losses;
@@ -398,14 +401,8 @@ TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout
             auto batchInput = torch::stack(stateList);
             auto actionsTensor = torch::from_blob(sampled_actions, { batchSize });
             actionsTensor = actionsTensor.toType(torch::ScalarType::Long).unsqueeze(-1);
-            ModelOutput modelOutput;
 
-            if(spawnRollout) {
-                modelOutput = this->myModel.forward_spawn(batchInput, actionsTensor);
-            }
-            else{
-                modelOutput = this->myModel.forward(batchInput, actionsTensor);
-            }
+            auto modelOutput = this->myModel.forward(batchInput, actionsTensor);
             auto log_probs = modelOutput.log_prob;
             auto values = modelOutput.value;
             auto entropy = modelOutput.entropy;
@@ -418,10 +415,6 @@ TrainingResult train_network(std::vector<ProcessedRolloutItem> processed_rollout
 
             // TODO: Why do they do 0.5?
             auto sampled_returns_tensor = torch::from_blob(sampled_returns, {batchSize, 1}).to(device);
-            // for(auto i = 0; i < batchSize; i++){
-            //     std::cout << sampled_returns[i] << std::endl;
-            // }
-
             auto value_loss = 0.5 * (sampled_returns_tensor - values).pow(2).mean();
             auto entropy_loss = entropy_weight * entropy.mean();
 
@@ -507,7 +500,7 @@ public:
         auto sample_ship_end = processed_ship_rollout.begin() + std::min(std::size_t(1000), processed_ship_rollout.size() -1);
         std::vector<ProcessedRolloutItem> sampled_ship_rollout(sample_ship_start, sample_ship_end);
 
-        auto currentLosses = train_network(sampled_ship_rollout, false);
+        auto currentLosses = train_network(sampled_ship_rollout);
 
         StepResult result;
         result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 

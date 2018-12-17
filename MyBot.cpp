@@ -196,7 +196,6 @@ int main(int argc, char* argv[]) {
     torch::load(myModel.fc1, "0fc1.pt");
     torch::load(myModel.fc2, "0fc2.pt");
     torch::load(myModel.fc3, "0fc3.pt");    
-    torch::load(myModel.fcSpawn, "0fcSpawn.pt");    
     myModel.to(torch::kCUDA);
 
     // At this point "game" variable is populated with initial map data.
@@ -256,10 +255,6 @@ int main(int argc, char* argv[]) {
             else if(action == 4) {
                 //Still
                 command_queue.push_back(ship->stay_still());
-            }
-            else if(action == 5) {
-                //Construct
-                command_queue.push_back(ship->make_dropoff());
             }
             else {
                 log::log("ERROR: Received bad action from neural network " + std::to_string(action));

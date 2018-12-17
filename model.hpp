@@ -13,9 +13,8 @@ public:
         conv2(torch::nn::Conv2dOptions(32, 64, /*kernel_size=*/3)),
         conv3(torch::nn::Conv2dOptions(64, 64, /*kernel_size=*/3)),
         fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 256),
-        fc2(256, 6),               //Actor head - Ship
+        fc2(256, 5),               //Actor head - Ship
         fc3(256, 1),               //Critic head
-        fcSpawn(256, 2),           //Actor head - Spawn
         device(torch::Device(torch::kCUDA))
     {
         register_module("conv1", conv1);
@@ -24,7 +23,6 @@ public:
         register_module("fc1", fc1);
         register_module("fc2", fc2);
         register_module("fc3", fc3);
-        register_module("fcSpawn", fcSpawn);
 
         torch::DeviceType device_type;
         if (torch::cuda::is_available()) {
@@ -67,42 +65,7 @@ public:
             std::cout << "fc3: (";
             std::cout << fc3.get()->weight.size(0) << ", ";
             std::cout << fc3.get()->weight.size(1) << ")" << std::endl;
-
-            std::cout << "fcSpawn: (";
-            std::cout << fcSpawn.get()->weight.size(0) << ", ";
-            std::cout << fcSpawn.get()->weight.size(1) << ")" << std::endl;
         }
-    }
-
-    ModelOutput forward_spawn(torch::Tensor x, torch::Tensor selected_action) {
-        x = x.to(this->device);
-        x = torch::relu(conv1->forward(x));
-        x = torch::relu(conv2->forward(x));
-        x = torch::relu(conv3->forward(x));
-        x = x.view({-1, 64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10)});
-        x = torch::relu(fc1->forward(x));
-
-        auto a = fcSpawn->forward(x);
-        auto action_probabilities = torch::softmax(a, /*dim=*/1);
-
-        if(selected_action.numel() == 0) {
-            //See:  https://github.com/pytorch/pytorch/blob/f79fb58744ba70970de652e46ea039b03e9ce9ff/torch/distributions/categorical.py#L110
-            //      https://pytorch.org/cppdocs/api/function_namespaceat_1ac675eda9cae4819bc9311097af498b67.html?highlight=multinomial
-            selected_action = action_probabilities.multinomial(1);
-            // std::cout << a << std::endl;
-            // std::cout << action_probabilities << std::endl;
-        }
-        else {
-            selected_action = selected_action.to(device);
-        }
-
-        auto log_prob = action_probabilities.gather(1, selected_action).log();
-        auto p_log_p = action_probabilities * action_probabilities.log();
-        auto entropy = -p_log_p.sum(-1).unsqueeze(-1);
-        auto value = fc3->forward(x);
-        //Return action, log_prob, value, entropy
-        ModelOutput output {selected_action, log_prob, value, entropy};
-        return output;
     }
 
     ModelOutput forward(torch::Tensor x, torch::Tensor selected_action) {
@@ -142,7 +105,6 @@ public:
     torch::nn::Linear fc1;
     torch::nn::Linear fc2;
     torch::nn::Linear fc3;
-    torch::nn::Linear fcSpawn;
     
     torch::Device device;
 };
