@@ -111,9 +111,6 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
     auto gameStatePtr = std::make_shared<GameState>();
     auto gameState = gameStatePtr.get();
 
-    int no_of_rows = GAME_HEIGHT;
-    int no_of_cols = GAME_WIDTH;
-
     int numRows = game.map.grid.size();
     int totalSteps = 0;
     if (numRows == 64) {
@@ -148,7 +145,7 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
 
                 gameState->position[y][x].halite_on_ship = (entity.energy / MAX_HALITE_ON_SHIP) - 0.5;
                 gameState->position[y][x].shipId = entity.id.value;
-                gameState->position[y][x].shipOwner = entity.owner.value;;
+                gameState->position[y][x].shipOwner = entity.owner.value;
             }
 
             cellX = cellX + 1;
@@ -178,8 +175,8 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
     }
 
     //Steps remaining
-    auto steps_remaining_value = totalSteps - game.turn_number + 1;
-    auto scaled_steps = (steps_remaining_value / totalSteps) - 0.5; //We normalize between [-0.5, 0.5]
+    float steps_remaining_value = totalSteps - game.turn_number + 1;
+    auto scaled_steps = (steps_remaining_value / float(totalSteps)) - 0.5; //We normalize between [-0.5, 0.5]
     gameState->steps_remaining = scaled_steps;
 
     return gameStatePtr;
@@ -261,7 +258,7 @@ CompleteRolloutResult generate_rollouts() {
                 }
 
                 auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
-                if(game.turn_number < 25 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
+                if(player.entities.size() == 0 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
                     std::string command = "spawn";
                     playerCommands.push_back(AgentCommand(playerId, command));
                 }
@@ -275,7 +272,7 @@ CompleteRolloutResult generate_rollouts() {
                 const auto entityId = rolloutKeyPair.first;
                 auto &rolloutItem = rolloutKeyPair.second;
 
-                //If any energy was dropped off by this 
+                //If any energy was dropped off by this entity
                 auto iterator = game.store.energy_dropped_off.find(entityId);
                 if(iterator != game.store.energy_dropped_off.end()) {
                     auto energy = game.store.energy_dropped_off[entityId];
@@ -496,11 +493,11 @@ public:
         std::random_shuffle(processed_ship_rollout.begin(), processed_ship_rollout.end());
         
         //Sample a portion of the rollout on which to train
-        auto sample_ship_start = processed_ship_rollout.begin();
-        auto sample_ship_end = processed_ship_rollout.begin() + std::min(std::size_t(1000), processed_ship_rollout.size() -1);
-        std::vector<ProcessedRolloutItem> sampled_ship_rollout(sample_ship_start, sample_ship_end);
+        // auto sample_ship_start = processed_ship_rollout.begin();
+        // auto sample_ship_end = processed_ship_rollout.begin() + std::min(std::size_t(1000), processed_ship_rollout.size() -1);
+        // std::vector<ProcessedRolloutItem> sampled_ship_rollout(sample_ship_start, sample_ship_end);
 
-        auto currentLosses = train_network(sampled_ship_rollout);
+        auto currentLosses = train_network(processed_ship_rollout);
 
         StepResult result;
         result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 
