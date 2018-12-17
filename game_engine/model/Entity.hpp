@@ -20,6 +20,7 @@ struct Entity final : public Enumerated<Entity> {
     bool was_captured;          /**< Track whether this entity was captured for statistics purposes. */
     bool is_inspired;           /**< Track whether or not this entity is currently inspired. */
 
+
     /**
      * Write an Entity to bot serial format.
      * @param ostream The output stream.

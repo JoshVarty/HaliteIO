@@ -14,7 +14,7 @@ namespace hlt {
  * @param cell The cell at which to dump.
  * @param energy The dumped amount of energy.
  */
-void dump_energy(Store &store, const Location &location, Cell &cell, energy_type energy) {
+void dump_energy(Store &store, const Location &location, Cell &cell, energy_type energy, Entity &entity) {
      if (cell.owner == Player::None) {
         // Just dump directly onto the cell.
         cell.energy += energy;
@@ -28,11 +28,13 @@ void dump_energy(Store &store, const Location &location, Cell &cell, energy_type
         player.total_energy_deposited += energy;
         if (location == player.factory) {
             player.factory_energy_deposited += energy;
+            store.energy_dropped_off[entity.id] = float(energy);
         }
         else {
             for (auto &dropoff : player.dropoffs) {
                 if (dropoff.location == location) {
                     dropoff.deposited_halite += energy;
+                    store.energy_dropped_off[entity.id] = float(energy);
                     return;
                 }
             }
@@ -44,7 +46,7 @@ void dump_energy(Store &store, const Location &location, Cell &cell, energy_type
 void dump_energy(Store &store, Entity &entity, const Location &location, Cell &cell, energy_type energy) {
     // Decrease the entity's energy.
     entity.energy -= energy;
-    dump_energy(store, location, cell, energy);
+    dump_energy(store, location, cell, energy, entity);
 }
 
 /**
@@ -105,7 +107,7 @@ void ConstructTransaction::commit() {
         auto &player = store.get_player(player_id);
         for (const ConstructCommand &command : constructs) {
             const auto entity_id = command.entity;
-            const auto &entity = store.get_entity(entity_id);
+            auto &entity = store.get_entity(entity_id);
             const auto location = player.get_entity_location(entity_id);
             auto &cell = map.at(location);
 
@@ -123,7 +125,7 @@ void ConstructTransaction::commit() {
             cell_updated(location);
 
             // Use dump_halite for stats tracking
-            dump_energy(store, location, cell, credit);
+            dump_energy(store, location, cell, credit, entity);
             // Charge player
             player.energy -= cost;
 

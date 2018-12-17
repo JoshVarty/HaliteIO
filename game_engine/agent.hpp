@@ -185,21 +185,15 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Halite &game) {
     return gameStatePtr;
 }
 
-
 CompleteRolloutResult generate_rollouts() {
 
     CompleteRolloutResult result;
     std::vector<RolloutItem> rollouts;
-    std::vector<RolloutItem> spawn_rollouts;
     std::vector<long> scores;
     std::vector<long> gameSteps;
     const auto &constants = hlt::Constants::get();
 
     while(rollouts.size() < minimum_rollout_size) {
-
-        std::unordered_map<long, std::vector<RolloutItem>> rolloutsForCurrentGame;
-        std::unordered_map<long, std::vector<RolloutItem>> spawnRolloutsForCurrentGame;
-
         //Reset environment for new game
         long map_width = GAME_HEIGHT;
         long map_height = GAME_WIDTH;
@@ -223,9 +217,12 @@ CompleteRolloutResult generate_rollouts() {
             game.update_inspiration();
 
             std::map<long, std::vector<AgentCommand>> commands;
+            std::unordered_map<hlt::Entity::id_type, RolloutItem> rolloutsForCurrentTurn;
 
             auto &players = game.store.players;
             auto gameState = parseGameIntoGameState(game);
+            //On every turn we reset the lookup for collected halite
+            game.store.energy_dropped_off.clear();
 
             for (auto playerPair : players) {
                 auto playerId = playerPair.first.value;
@@ -256,37 +253,15 @@ CompleteRolloutResult generate_rollouts() {
                     //This seems backwards but we represent "Done" as 0 and "Not done" as 1
                     current_rollout.done = 1;
 
-                    rolloutsForCurrentGame[entityId.value].push_back(current_rollout);
+                    rolloutsForCurrentTurn[entityId] = current_rollout;
                     std::string command = unitCommands[actionIndex];
                     playerCommands.push_back(AgentCommand(entityId.value, command));
                 }
 
                 auto factoryCell = game.map.grid[player.factory.y][player.factory.x];
-                if(player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
-                    auto entityState = parseGameIntoEntityState(gameState, playerId, player.factory.y, player.factory.x, 0);
-                    auto state = convertEntityStateToTensor(entityState).unsqueeze(0);
-                    //Ask the neural network what to do
-                    torch::Tensor emptyAction;
-                    auto modelOutput = myModel.forward_spawn(state, emptyAction);
-
-                    auto actionIndex = modelOutput.action.item<int64_t>();
-                    //Create and story rollout
-                    RolloutItem current_rollout;
-                    current_rollout.state = entityState;
-                    current_rollout.value = modelOutput.value.item<float>();
-                    current_rollout.action = actionIndex;
-                    current_rollout.log_prob = modelOutput.log_prob.item<float>();
-                    current_rollout.playerId = playerId;
-                    current_rollout.reward = 0;
-                    //This seems backwards but we represent "Done" as 0 and "Not done" as 1
-                    current_rollout.done = 1;
-
-                    if(actionIndex == 0) {
-                        std::string command = "spawn";
-                        playerCommands.push_back(AgentCommand(playerId, command));
-                    }
-
-                    spawnRolloutsForCurrentGame[playerId].push_back(current_rollout);
+                if(game.turn_number < 25 && player.energy >= constants.NEW_ENTITY_ENERGY_COST && factoryCell.entity.value == -1) {
+                    std::string command = "spawn";
+                    playerCommands.push_back(AgentCommand(playerId, command));
                 }
 
                 commands[playerId] = playerCommands;
@@ -294,10 +269,22 @@ CompleteRolloutResult generate_rollouts() {
 
             game.process_turn(commands);
 
+            for(auto &rolloutKeyPair : rolloutsForCurrentTurn) {
+                const auto entityId = rolloutKeyPair.first;
+                auto &rolloutItem = rolloutKeyPair.second;
+
+                //If any energy was dropped off by this 
+                auto iterator = game.store.energy_dropped_off.find(entityId);
+                if(iterator != game.store.energy_dropped_off.end()) {
+                    auto energy = game.store.energy_dropped_off[entityId];
+                    rolloutItem.reward = energy;
+                }
+
+                rollouts.push_back(rolloutItem);
+            }
+
             game.turn_number = game.turn_number + 1;
             if (game.game_ended() || game.turn_number >= constants.MAX_TURNS) {
-                //std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
-                gameSteps.push_back(game.turn_number);
 
                 auto p1TurnProductions = game.game_statistics.player_statistics[0].turn_productions;
                 auto p2TurnProductions = game.game_statistics.player_statistics[1].turn_productions;
@@ -307,52 +294,19 @@ CompleteRolloutResult generate_rollouts() {
                 scores.push_back(player1Score);
                 scores.push_back(player2Score);
 
-                //If the game ended we have to correct the "rewards" and the "dones"
-                for(auto &rolloutKeyValue : rolloutsForCurrentGame) {
-                    auto entityId = rolloutKeyValue.first;
-                    auto &entityRollout = rolloutKeyValue.second;
-                    auto &lastRolloutItem = entityRollout[entityRollout.size() - 1];
-
-                    //This seems backwards but we represent "Done" as 0 and "Not done" as 1
-                    lastRolloutItem.done = 0;
-                    if(lastRolloutItem.playerId == 0) {
-                        lastRolloutItem.reward = player1Score;
-                    }
-                    else {
-                        lastRolloutItem.reward = player2Score;
-                    }
-
-                    rollouts.insert(rollouts.end(), rolloutsForCurrentGame[entityId].begin(), rolloutsForCurrentGame[entityId].end());
-                }
-
-                //Need to do the same thing for spawnRollouts
-                for(auto &rolloutKeyValue : spawnRolloutsForCurrentGame) {
-                    auto entityId = rolloutKeyValue.first;
-                    auto &entityRollout = rolloutKeyValue.second;
-                    auto &lastRolloutItem = entityRollout[entityRollout.size() - 1];
-
-                    //This seems backwards but we represent "Done" as 0 and "Not done" as 1
-                    lastRolloutItem.done = 0;
-                    if(lastRolloutItem.playerId == 0) {
-                        lastRolloutItem.reward = player1Score;
-                    }
-                    else {
-                        lastRolloutItem.reward = player2Score;
-                    }
-
-                    spawn_rollouts.insert(spawn_rollouts.end(), spawnRolloutsForCurrentGame[entityId].begin(), spawnRolloutsForCurrentGame[entityId].end());
-                }
-
+                //std::cout << "Game ended in: " << game.turn_number << " turns" << std::endl;
+                gameSteps.push_back(game.turn_number);
                 break;
             }
         }
     }
 
+    std::cout << "Rollouts: " << rollouts.size() << std::endl;
+
     //Return scores along with rollouts
     result.rollouts = rollouts;
     result.scores = scores;
     result.gameSteps = gameSteps;
-    result.spawn_rollouts = spawn_rollouts;
     return result;
 }
 
@@ -543,11 +497,17 @@ public:
         scores.insert(scores.end(), rolloutResult.scores.begin(), rolloutResult.scores.end());
         gameSteps.insert(gameSteps.end(), rolloutResult.gameSteps.begin(), rolloutResult.gameSteps.end());
 
-        auto processed_spawn_rollout = process_rollouts(rolloutResult.spawn_rollouts);
-        auto spawnLosses = train_network(processed_spawn_rollout, true);
-
         auto processed_ship_rollout = process_rollouts(rolloutResult.rollouts);
-        auto currentLosses = train_network(processed_ship_rollout, false);
+
+        //Shuffle the rollouts
+        std::random_shuffle(processed_ship_rollout.begin(), processed_ship_rollout.end());
+        
+        //Sample a portion of the rollout on which to train
+        auto sample_ship_start = processed_ship_rollout.begin();
+        auto sample_ship_end = processed_ship_rollout.begin() + std::min(std::size_t(1000), processed_ship_rollout.size() -1);
+        std::vector<ProcessedRolloutItem> sampled_ship_rollout(sample_ship_start, sample_ship_end);
+
+        auto currentLosses = train_network(sampled_ship_rollout, false);
 
         StepResult result;
         result.meanScore = std::accumulate(scores.begin(), scores.end(), 0.0) / scores.size(); 

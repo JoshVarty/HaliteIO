@@ -12,10 +12,10 @@ public:
     :   conv1(torch::nn::Conv2dOptions(NUMBER_OF_FRAMES, 32, /*kernel_size=*/7)),
         conv2(torch::nn::Conv2dOptions(32, 64, /*kernel_size=*/3)),
         conv3(torch::nn::Conv2dOptions(64, 64, /*kernel_size=*/3)),
-        fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 512),
-        fc2(512, 6),               //Actor head - Ship
-        fc3(512, 1),               //Critic head
-        fcSpawn(512, 2),           //Actor head - Spawn
+        fc1(64 * (GAME_HEIGHT - 10) * (GAME_WIDTH - 10), 256),
+        fc2(256, 6),               //Actor head - Ship
+        fc3(256, 1),               //Critic head
+        fcSpawn(256, 2),           //Actor head - Spawn
         device(torch::Device(torch::kCUDA))
     {
         register_module("conv1", conv1);

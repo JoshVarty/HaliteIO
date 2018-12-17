@@ -192,10 +192,10 @@ int main(int argc, char *argv[]) {
     float discount_rate = 0.99;
     float tau = 0.95;
     float learningRounds = 2;
-    float mini_batch_number = 32;
+    float mini_batch_number = 64;
     float ppo_clip = 0.2;
-    float minimum_rollout_size = 3000;
-    float learning_rate = 0.00000001;
+    float minimum_rollout_size = 4000;
+    float learning_rate = 0.0000005;
     float entropy_weight = 0.01;
 
     Agent agent(discount_rate, tau, learningRounds, mini_batch_number, ppo_clip, minimum_rollout_size, learning_rate, entropy_weight);

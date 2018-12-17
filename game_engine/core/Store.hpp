@@ -33,7 +33,6 @@ class Store {
     friend class net::Networking;
     friend struct Turn;
 
-    id_map<Entity, Entity> entities;         /**< Map from entity ID to entity. */
     Factory<Player> player_factory;   /**< The player factory. */
     Factory<Entity> entity_factory;   /**< The entity factory. */
     Factory<Dropoff> dropoff_factory; /**< The dropoff factory. */
@@ -41,9 +40,11 @@ class Store {
     std::unordered_set<Location> changed_cells{}; /**< The cells changed on the last turn. */
 
 public:
+    id_map<Entity, Entity> entities;         /**< Map from entity ID to entity. */
     std::vector<long> selfCollidedEntities;  // Josh: List of entities that collided with their own ships on a given turn
     unsigned long long map_total_energy{}; /**< The total energy remaining on the map. */
     ordered_id_map<Player, Player> players;  /**< Map from player ID to player. */
+    id_map<Entity, float> energy_dropped_off;
 
     /**
      * Get a player by ID.

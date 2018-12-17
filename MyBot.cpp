@@ -99,8 +99,6 @@ std::shared_ptr<EntityState> parseGameIntoEntityState(std::shared_ptr<GameState>
     return entityStatePtr;
 }
 
-
-
 std::shared_ptr<GameState> parseGameIntoGameState(hlt::Game &game) {
 
     auto gameStatePtr = std::make_shared<GameState>();
@@ -177,7 +175,6 @@ std::shared_ptr<GameState> parseGameIntoGameState(hlt::Game &game) {
 
     return gameStatePtr;
 }
-
 
 int main(int argc, char* argv[]) {
 
@@ -269,21 +266,9 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        if (me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
-
-            long factoryId = -1;
-
-            auto entityState = parseGameIntoEntityState(gameState, me->id, me->shipyard->position.y, me->shipyard->position.x, 0);
-            auto state = convertEntityStateToTensor(entityState);
-            state = state.unsqueeze(0);
-            torch::Tensor emptyAction;
-            auto modelOutput = myModel.forward_spawn(state, emptyAction);
-
-            auto actionIndex = modelOutput.action.item<int64_t>();
-            if(actionIndex == 0) {
-                std::string command = "spawn";
-                command_queue.push_back(me->shipyard->spawn());
-            }
+        if (game.turn_number < 25 && me->halite >= constants::SHIP_COST && !game_map->at(me->shipyard)->is_occupied()) {
+            std::string command = "spawn";
+            command_queue.push_back(me->shipyard->spawn());
         }
 
         if (!game.end_turn(command_queue)) {
