@@ -65,13 +65,28 @@ struct ResNet : torch::nn::Module {
     torch::nn::Sequential layer4;
     //torch::adaptive_avg_pool2d avgPool;
 
-    ResNet(int64_t inputDepth) 
+    ResNet(int64_t inputDepth, int layers[]) 
     :
     conv1Options(torch::nn::Conv2dOptions(inputDepth, 64, /*kernel_size=*/7).stride(2).padding(3).with_bias(false)),
     conv1(conv1Options),
     bn1(torch::nn::BatchNorm(64)),
-    layer1()
+    layer1(make_layer_basic(64,  layers[0], /*stride=*/1)),
+    layer2(make_layer_basic(128, layers[1], /*stride=*/2)),
+    layer3(make_layer_basic(256, layers[2], /*stride=*/2)),
+    layer4(make_layer_basic(512, layers[3], /*stride=*/2))
     {
+        //Init weights
+        for (auto module_shared : this->modules()) {
+            auto module = module_shared.get();
+            if ( dynamic_cast<torch::nn::Conv2d*>(module)) {
+                //TODO: Use Kaiming normal not xavier
+                torch::nn:init::xavier_normal_(module.weight);
+            }
+            else if ( dynamic_cast<torch::nn::BatchNorm*>(module)) {
+                torch::nn::init::constant_(module.weight, 1);
+                torch::nn::init::constant_(module.bias, 0);
+            }
+        }
     }
 
     torch::nn::Sequential make_layer_basic(int64_t planes, int64_t blocks, int64_t stride) {
