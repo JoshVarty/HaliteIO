@@ -78,13 +78,15 @@ struct ResNet : torch::nn::Module {
         //Init weights
         for (auto module_shared : this->modules()) {
             auto module = module_shared.get();
-            if ( dynamic_cast<torch::nn::Conv2d*>(module)) {
+            if (dynamic_cast<torch::nn::Conv2d*>(module)) {
                 //TODO: Use Kaiming normal not xavier
-                torch::nn:init::xavier_normal_(module.weight);
+                auto convLayer = dynamic_cast<torch::nn::Conv2d*>(module)->get();
+                torch::nn::init::xavier_normal_(convLayer->weight);
             }
-            else if ( dynamic_cast<torch::nn::BatchNorm*>(module)) {
-                torch::nn::init::constant_(module.weight, 1);
-                torch::nn::init::constant_(module.bias, 0);
+            else if (dynamic_cast<torch::nn::BatchNorm*>(module)) {
+                auto batchNormLayer = dynamic_cast<torch::nn::BatchNorm*>(module)->get();
+                torch::nn::init::constant_(batchNormLayer->weight, 1);
+                torch::nn::init::constant_(batchNormLayer->bias, 0);
             }
         }
     }
@@ -112,6 +114,7 @@ struct ResNet : torch::nn::Module {
 
         return layers;
     }
+
 };
 
 
