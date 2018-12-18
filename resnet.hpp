@@ -115,7 +115,22 @@ struct ResNet : torch::nn::Module {
         return layers;
     }
 
+    torch::Tensor forward(torch::Tensor x) {
+        x = this->conv1->forward(x);
+        x = this->bn1->forward(x);
+        x = torch::relu(x);
+        x = torch::max_pool2d(x, /*kernel_size*/{3}, /*stride*/{2}, /*padding*/{1});
+
+        x = this->layer1->forward(x);
+        x = this->layer2->forward(x);
+        x = this->layer3->forward(x);
+        x = this->layer4->forward(x);
+
+        x = torch::adaptive_avg_pool2d(x, {1,1});
+        return x;
+    }
 };
+
 
 
 #endif
