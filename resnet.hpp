@@ -54,7 +54,7 @@ struct BasicBlock : torch::nn::Module {
     }
 };
 
-class Bottleneck : torch::nn::Module {
+struct Bottleneck : torch::nn::Module {
     static const int64_t EXPANSION = 4;
 
     torch::nn::Conv2d conv1;
@@ -76,7 +76,7 @@ class Bottleneck : torch::nn::Module {
     {
     }
 
-    torch::Tensor foward(torch::Tensor x) {
+    torch::Tensor forward(torch::Tensor x) {
         auto identity = x;
         
         auto out = conv1->forward(x);
@@ -112,7 +112,7 @@ struct ResNet : torch::nn::Module {
     torch::nn::Sequential make_layer_basic(int64_t planes, int64_t blocks, int64_t stride) {
 
         torch::nn::Sequential downsample;
-        if(stride != 1 or this->inplanes != planes * BasicBlock::EXPANSION) { //TODO: block.expansion?
+        if(stride != 1 || this->inplanes != planes * BasicBlock::EXPANSION) { //TODO: block.expansion?
             downsample = torch::nn::Sequential(
                 conv1x1(this->inplanes, planes * BasicBlock::EXPANSION, stride),
                 torch::nn::BatchNorm(planes * BasicBlock::EXPANSION)
@@ -122,10 +122,34 @@ struct ResNet : torch::nn::Module {
         torch::nn::Sequential layers;
         auto newBlock = BasicBlock(this->inplanes, planes, downsample);
         layers->push_back(newBlock);
+        this->inplanes = planes * BasicBlock::EXPANSION;
 
         for(int64_t i = 0; i < blocks; i++) {
             torch::nn::Sequential empty_downsample;
             newBlock = BasicBlock(this->inplanes, planes, empty_downsample);
+            //layers->push_back(newBlock);
+        }
+
+        return layers;
+    }
+
+    torch::nn::Sequential make_layer_bottleneck( int64_t planes, int64_t blocks, int64_t stride) {
+        torch::nn::Sequential downsample;
+        if(stride != 1 || this->inplanes != planes * Bottleneck::EXPANSION) {
+            downsample = torch::nn::Sequential(
+                conv1x1(this->inplanes, planes * Bottleneck::EXPANSION, stride),
+                torch::nn::BatchNorm(planes * Bottleneck::EXPANSION)
+            );
+        }
+
+        torch::nn::Sequential layers;
+        auto newBlock = Bottleneck(this->inplanes, planes, downsample);
+        layers->push_back(newBlock);
+        this->inplanes = planes * Bottleneck::EXPANSION;
+
+        for(int64_t i = 0; i < blocks; i++) {
+            torch::nn::Sequential empty_downsample;
+            newBlock = Bottleneck(this->inplanes, planes, downsample);
             layers->push_back(newBlock);
         }
 
